@@ -1,8 +1,6 @@
 # excerptStringPutback
 
-UTF-8 のテキストから二重引用符で囲まれた文字列を抜粋し、編集した内容を同じ位置へ書き戻すツールです。入力ファイルの引用符の外はそのまま残します。
-
-抜粋して、抜粋側だけを編集し、元の断片と一致することを確認してから書き戻す手順は excerptTextPutback に揃えています。対象が自由なテキスト範囲ではなく、二重引用符付きの文字列です。フォルダ構成は Go 版の `cmd` / `internal` ではなく、.NET SDK の構成です。
+正規表現に一致したテキストを TSV へ書き出し、編集した内容を同じ正規表現の位置へ書き戻すツールです。手順は excerptTextPutback に揃えています。フォルダ構成は Go 版の `cmd` / `internal` ではなく、.NET SDK の構成です。
 
 動作の詳細は [docs/specification.md](docs/specification.md) を正とします。
 
@@ -15,18 +13,18 @@ Windows x64 で実行するだけなら、同梱の exe だけで足ります。
 Windows ではリポジトリ直下の bat を使います。中では `exe\win-x64\excerptStringPutback.exe` を起動します。
 
 ```bat
-excerpt.bat input.txt excerpt.jsonl
-putback.bat input.txt excerpt.jsonl output.txt
+excerpt.bat "名前:\S+" input.txt excerpt.tsv
+putback.bat "名前:\S+" input.txt excerpt.tsv output.txt
 ```
 
 exe を直接呼ぶ場合:
 
 ```bat
-exe\win-x64\excerptStringPutback.exe excerpt input.txt excerpt.jsonl
-exe\win-x64\excerptStringPutback.exe putback input.txt excerpt.jsonl output.txt
+exe\win-x64\excerptStringPutback.exe excerpt "名前:\S+" input.txt excerpt.tsv
+exe\win-x64\excerptStringPutback.exe putback "名前:\S+" input.txt excerpt.tsv output.txt
 ```
 
-`excerpt` は入力を変更しません。抜粋ファイルの各行にある `edited` だけを編集し、`id`、`start`、`length`、`raw` は残します。`putback` は `raw` が入力の該当範囲と一致するときだけ `edited` を差し込みます。出力に入力と同じパスを指定すると、そのファイルを置き換えます。
+`excerpt` は入力を変更しません。抜粋ファイルでは `edited` だけを編集し、`id`、`start`、`length`、`raw` は残します。`putback` は同じ正規表現で再検索し、一致したテキストが `raw` と順に同じときだけ `edited` を書き込みます。出力に入力と同じパスを指定すると、そのファイルを置き換えます。
 
 ## ビルドとテスト
 
