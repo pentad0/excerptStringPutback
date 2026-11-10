@@ -34,7 +34,7 @@ internal static class TextCodec
         var bytes = ReadBytes(path);
         if (IsUtf32Bom(bytes))
         {
-            throw new ToolException("UTF-32 の BOM は扱えません。");
+            throw new ToolException(Text.Current.Utf32Bom);
         }
 
         string? bomName = null;
@@ -65,7 +65,7 @@ internal static class TextCodec
                 var asked = Canonical(requested);
                 if (!string.Equals(asked, encodingName, StringComparison.Ordinal))
                 {
-                    stderr.WriteLine($"警告: -encoding は {asked} ですが、BOM を優先して {encodingName} として読みます。");
+                    stderr.WriteLine(Text.Current.Format(Text.Current.BomOverridesEncoding, asked, encodingName));
                 }
             }
         }
@@ -73,7 +73,7 @@ internal static class TextCodec
         {
             if (string.IsNullOrWhiteSpace(requested))
             {
-                throw new ToolException("BOM が無いファイルには -encoding が必要です。");
+                throw new ToolException(Text.Current.EncodingRequired);
             }
 
             encodingName = Canonical(requested);
@@ -85,12 +85,12 @@ internal static class TextCodec
         {
             if (bodyLength % 2 != 0)
             {
-                throw new ToolException("UTF-16 のバイト数が奇数です。");
+                throw new ToolException(Text.Current.OddUtf16);
             }
 
             if (HasUnpairedUtf16(bytes.AsSpan(bomLength, bodyLength), encodingName == "utf-16be"))
             {
-                throw new ToolException("対になっていないサロゲートがあります。");
+                throw new ToolException(Text.Current.UnpairedSurrogate);
             }
         }
 
@@ -102,18 +102,18 @@ internal static class TextCodec
         catch (DecoderFallbackException)
         {
             throw new ToolException(encodingName == "utf-8"
-                ? "UTF-8 として読めません。"
-                : "テキストを復号できません。");
+                ? Text.Current.InvalidUtf8
+                : Text.Current.CannotDecode);
         }
 
         if (HasUnpairedSurrogate(text))
         {
-            throw new ToolException("対になっていないサロゲートがあります。");
+            throw new ToolException(Text.Current.UnpairedSurrogate);
         }
 
         if (encoding.GetByteCount(text) != bodyLength)
         {
-            throw new ToolException("符号化し直すとバイト数が変わります。");
+            throw new ToolException(Text.Current.ReencodeChangesLength);
         }
 
         return new DecodedText
@@ -134,7 +134,7 @@ internal static class TextCodec
             "utf8" => "utf-8",
             "utf16le" => "utf-16le",
             "utf16be" => "utf-16be",
-            _ => throw new ToolException($"符号化が不正です: {name}"),
+            _ => throw new ToolException(Text.Current.Format(Text.Current.InvalidEncoding, name)),
         };
     }
 
@@ -145,7 +145,7 @@ internal static class TextCodec
             "utf-8" => new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true),
             "utf-16le" => new UnicodeEncoding(bigEndian: false, byteOrderMark: false, throwOnInvalidBytes: true),
             "utf-16be" => new UnicodeEncoding(bigEndian: true, byteOrderMark: false, throwOnInvalidBytes: true),
-            _ => throw new ToolException($"符号化が不正です: {encodingName}"),
+            _ => throw new ToolException(Text.Current.Format(Text.Current.InvalidEncoding, encodingName)),
         };
     }
 
@@ -155,7 +155,7 @@ internal static class TextCodec
         var directory = Path.GetDirectoryName(full);
         if (string.IsNullOrEmpty(directory) || !Directory.Exists(directory))
         {
-            throw new ToolException($"フォルダが見つかりません: {directory}");
+            throw new ToolException(Text.Current.Format(Text.Current.DirectoryNotFound, directory ?? ""));
         }
 
         var temporary = Path.Combine(directory, "." + Path.GetFileName(full) + "." + Guid.NewGuid().ToString("N") + ".tmp");
@@ -166,7 +166,7 @@ internal static class TextCodec
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            throw new ToolException($"ファイルを書けません: {path}");
+            throw new ToolException(Text.Current.Format(Text.Current.CannotWrite, path));
         }
         finally
         {
@@ -202,7 +202,7 @@ internal static class TextCodec
         }
         catch (DecoderFallbackException)
         {
-            throw new ToolException("パターンファイルを UTF-8 として読めません。");
+            throw new ToolException(Text.Current.PatternFileUtf8);
         }
 
         if (text.EndsWith("\r\n", StringComparison.Ordinal))
@@ -226,15 +226,15 @@ internal static class TextCodec
         }
         catch (FileNotFoundException)
         {
-            throw new ToolException($"ファイルが見つかりません: {path}");
+            throw new ToolException(Text.Current.Format(Text.Current.FileNotFound, path));
         }
         catch (DirectoryNotFoundException)
         {
-            throw new ToolException($"ファイルが見つかりません: {path}");
+            throw new ToolException(Text.Current.Format(Text.Current.FileNotFound, path));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            throw new ToolException($"ファイルを読めません: {path}");
+            throw new ToolException(Text.Current.Format(Text.Current.CannotRead, path));
         }
     }
 

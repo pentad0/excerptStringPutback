@@ -4,72 +4,83 @@ namespace ExcerptStringPutback;
 
 public static class Cli
 {
-    public const string Help =
-        """
-        使い方:
-          excerptStringPutback extract -encoding <符号化> -pattern <正規表現> -o <出力.json> <テキストファイル>
-          excerptStringPutback extract -encoding <符号化> -pattern-file <ファイル> -o <出力.json> <テキストファイル>
-          excerptStringPutback write -number <番号> -o <出力ファイル> [-json-out <JSON>] [-disable <方式>] <カタログ.json> <テキストファイル>
-          excerptStringPutback version
-        """;
+    private static readonly string[] ValueFlags =
+    [
+        "-encoding",
+        "-pattern",
+        "-pattern-file",
+        "-o",
+        "-disable",
+        "-number",
+        "-json-out",
+    ];
 
     public static int Run(string[] args, TextWriter stdout, TextWriter stderr)
     {
         ArgumentNullException.ThrowIfNull(args);
         ArgumentNullException.ThrowIfNull(stdout);
         ArgumentNullException.ThrowIfNull(stderr);
+        Text.Use(Messages.ForCulture(CultureInfo.CurrentUICulture));
         try
         {
-            if (args.Length == 0)
+            var (language, rest) = SplitLanguage(args);
+            if (language is not null)
             {
-                stderr.WriteLine(Help);
+                Text.Use(Messages.ForOption(language));
+            }
+
+            var text = Text.Current;
+            if (rest.Length == 0)
+            {
+                stderr.WriteLine(text.Help);
                 return 2;
             }
 
-            switch (args[0])
+            switch (rest[0])
             {
-                case "version" when args.Length == 1:
+                case "version" when rest.Length == 1:
                     stdout.WriteLine(ToolInfo.Version);
                     return 0;
-                case "help" or "--help" or "-h" when args.Length == 1:
-                    stdout.WriteLine(Help);
+                case "help" or "--help" or "-h" when rest.Length == 1:
+                    stdout.WriteLine(text.Help);
                     return 0;
                 case "extract":
-                    Extract(args.Skip(1).ToArray(), stderr);
+                    Extract(rest.Skip(1).ToArray(), stderr);
                     return 0;
                 case "write":
-                    Write(args.Skip(1).ToArray(), stderr);
+                    Write(rest.Skip(1).ToArray(), stderr);
                     return 0;
                 default:
-                    throw new UsageException("未知のコマンドです。");
+                    throw new UsageException(text.UnknownCommand);
             }
         }
         catch (UsageException ex)
         {
-            stderr.WriteLine("エラー: " + ex.Message);
-            stderr.WriteLine(Help);
+            stderr.WriteLine(Text.Current.ErrorPrefix + ex.Message);
+            stderr.WriteLine(Text.Current.Help);
             return 2;
         }
         catch (ToolException ex)
         {
-            stderr.WriteLine("エラー: " + ex.Message);
+            stderr.WriteLine(Text.Current.ErrorPrefix + ex.Message);
             return 1;
         }
     }
 
     private static void Extract(string[] args, TextWriter stderr)
     {
+        var text = Text.Current;
         var (flags, positionals) = Parse(args, "-encoding", "-pattern", "-pattern-file", "-o", "-disable");
         if (positionals.Count != 1 || !flags.ContainsKey("-o"))
         {
-            throw new UsageException("引数が足りません。");
+            throw new UsageException(text.MissingArguments);
         }
 
         var hasPattern = flags.ContainsKey("-pattern");
         var hasPatternFile = flags.ContainsKey("-pattern-file");
         if (hasPattern == hasPatternFile)
         {
-            throw new UsageException("-pattern と -pattern-file はどちらか一方を指定します。");
+            throw new UsageException(text.PatternChoice);
         }
 
         var pattern = hasPattern ? flags["-pattern"] : TextCodec.ReadPatternFile(flags["-pattern-file"]);
@@ -83,15 +94,16 @@ public static class Cli
         flags.TryGetValue("-encoding", out var encoding);
         var catalog = Engine.Extract(positionals[0], pattern, encoding, methods, stderr);
         CatalogJson.Write(flags["-o"], catalog);
-        stderr.WriteLine($"{catalog.Entries.Count} 件を書き出しました。");
+        stderr.WriteLine(text.Format(text.Extracted, catalog.Entries.Count));
     }
 
     private static void Write(string[] args, TextWriter stderr)
     {
+        var text = Text.Current;
         var (flags, positionals) = Parse(args, "-number", "-o", "-json-out", "-disable");
         if (positionals.Count != 2 || !flags.ContainsKey("-o"))
         {
-            throw new UsageException("引数が足りません。");
+            throw new UsageException(text.MissingArguments);
         }
 
         var catalogPath = positionals[0];
@@ -100,12 +112,12 @@ public static class Cli
         var jsonOut = flags.TryGetValue("-json-out", out var jsonPath) ? jsonPath : catalogPath;
         if (IsSamePath(textOut, textPath))
         {
-            throw new ToolException("元のテキストファイルは変更しません。別の出力先を指定してください。");
+            throw new ToolException(text.KeepOriginalText);
         }
 
         if (IsSamePath(jsonOut, textOut) || IsSamePath(jsonOut, textPath))
         {
-            throw new ToolException("JSON の出力先がテキストファイルと同じです。");
+            throw new ToolException(text.JsonPathIsText);
         }
 
         var catalog = CatalogJson.Read(catalogPath);
@@ -114,12 +126,12 @@ public static class Cli
         {
             if (!int.TryParse(numberText, NumberStyles.None, CultureInfo.InvariantCulture, out number) || number < 1)
             {
-                throw new ToolException("-number は 1 以上の整数です。");
+                throw new ToolException(text.NumberRange);
             }
         }
         else if (catalog.Used < 1)
         {
-            throw new ToolException("-number が無く、used が 0 です。");
+            throw new ToolException(text.UsedZero);
         }
         else
         {
@@ -134,12 +146,69 @@ public static class Cli
         CatalogJson.Write(jsonOut, catalog);
         var unmatched = catalog.Entries.Count(entry => entry.Status == "unmatched");
         stderr.WriteLine(unmatched == 0
-            ? $"{catalog.Entries.Count - unmatched} 件を書き戻しました。"
-            : $"{catalog.Entries.Count - unmatched} 件を書き戻しました。対応しなかった項目は {unmatched} 件です。");
+            ? text.Format(text.Wrote, catalog.Entries.Count)
+            : text.Format(text.WroteWithUnmatched, catalog.Entries.Count - unmatched, unmatched));
+    }
+
+    private static (string? Language, string[] Remaining) SplitLanguage(string[] args)
+    {
+        string? language = null;
+        var rest = new List<string>();
+        for (var i = 0; i < args.Length; i++)
+        {
+            var arg = args[i];
+            if (arg == "--")
+            {
+                rest.AddRange(args.Skip(i));
+                break;
+            }
+
+            var name = arg;
+            string? inline = null;
+            var equals = arg.StartsWith('-') ? arg.IndexOf('=') : -1;
+            if (equals > 0)
+            {
+                name = arg[..equals];
+                inline = arg[(equals + 1)..];
+            }
+
+            if (name == "-language")
+            {
+                if (language is not null)
+                {
+                    throw new UsageException(Text.Current.DuplicateArgument);
+                }
+
+                if (inline is not null)
+                {
+                    language = inline;
+                }
+                else
+                {
+                    if (i + 1 >= args.Length)
+                    {
+                        throw new UsageException(Text.Current.MissingArguments);
+                    }
+
+                    language = args[++i];
+                }
+
+                continue;
+            }
+
+            rest.Add(arg);
+            if (inline is null && ValueFlags.Contains(name, StringComparer.Ordinal) && i + 1 < args.Length)
+            {
+                rest.Add(args[++i]);
+            }
+        }
+
+        return (language, rest.ToArray());
     }
 
     private static (Dictionary<string, string> Flags, List<string> Positionals) Parse(string[] args, params string[] allowed)
     {
+        var text = Text.Current;
         var flags = new Dictionary<string, string>(StringComparer.Ordinal);
         var rest = new List<string>();
         var allowedSet = new HashSet<string>(allowed, StringComparer.Ordinal);
@@ -166,7 +235,7 @@ public static class Cli
                 {
                     if (i + 1 >= args.Length)
                     {
-                        throw new UsageException("引数が足りません。");
+                        throw new UsageException(text.MissingArguments);
                     }
 
                     value = args[++i];
@@ -174,12 +243,12 @@ public static class Cli
 
                 if (!allowedSet.Contains(name))
                 {
-                    throw new UsageException("未知の引数です。");
+                    throw new UsageException(text.UnknownArgument);
                 }
 
                 if (!flags.TryAdd(name, value))
                 {
-                    throw new UsageException("同じ引数が2回あります。");
+                    throw new UsageException(text.DuplicateArgument);
                 }
 
                 continue;
