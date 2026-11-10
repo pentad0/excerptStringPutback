@@ -4,7 +4,7 @@ UTF-8 のテキストから二重引用符で囲まれた文字列を抜粋し�
 
 抜粋して、抜粋側だけを編集し、元の断片と一致することを確認してから書き戻す手順は excerptTextPutback に揃えています。対象が自由なテキスト範囲ではなく、二重引用符付きの文字列です。フォルダ構成は Go 版の `cmd` / `internal` ではなく、.NET SDK の構成です。
 
-動作の詳細は [docs/仕様書.md](docs/仕様書.md) を正とします。
+動作の詳細は [docs/specification.md](docs/specification.md) を正とします。
 
 ## 必要環境
 
@@ -42,5 +42,5 @@ src/ExcerptStringPutback/          コンソールアプリ
 tests/ExcerptStringPutback.Tests/  テスト
 excerpt.bat
 putback.bat
-docs/仕様書.md
+docs/specification.md
 ```
