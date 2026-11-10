@@ -137,6 +137,20 @@ public class ExcerptStringPutbackTests
     }
 
     [Fact]
+    public void Json_puts_each_array_element_on_its_own_line()
+    {
+        var catalog = Extract(") ( subhead = ", "(.*)");
+        var raw = CatalogJson.ToJson(catalog);
+        Assert.Contains("  \"names\": [\n    \"changed\"\n  ],\n", raw, StringComparison.Ordinal);
+        Assert.Contains("  \"methods\": [\n    \"key\",\n    \"offset\",\n    \"exact\",\n    \"context\",\n    \"align\",\n    \"revised\"\n  ],\n", raw, StringComparison.Ordinal);
+        Assert.Contains("      \"key\": [],\n", raw, StringComparison.Ordinal);
+        Assert.Contains("      \"target\": [\n        \") ( subhead = \"\n      ],\n", raw, StringComparison.Ordinal);
+        var entry = Assert.Single(catalog.Entries);
+        Assert.Equal("", entry.Status);
+        Assert.Equal("", entry.MatchedBy);
+    }
+
+    [Fact]
     public void Angle_brackets_are_not_escaped_and_newlines_are()
     {
         var catalog = Extract("a<b&c\n", "(?s)(.*)");

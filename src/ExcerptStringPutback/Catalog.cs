@@ -391,17 +391,28 @@ internal static class CatalogJson
     private static void StringsProp(StringBuilder builder, int indent, string name, IReadOnlyList<string> values, bool last = false)
     {
         Prefix(builder, indent, name);
-        builder.Append('[');
-        for (var i = 0; i < values.Count; i++)
+        if (values.Count == 0)
         {
-            if (i > 0)
-            {
-                builder.Append(", ");
-            }
-
-            WriteString(builder, values[i]);
+            builder.Append("[]");
+            End(builder, last);
+            return;
         }
 
+        builder.Append("[\n");
+        var child = indent + 1;
+        for (var i = 0; i < values.Count; i++)
+        {
+            builder.Append(' ', child * 2);
+            WriteString(builder, values[i]);
+            if (i + 1 < values.Count)
+            {
+                builder.Append(',');
+            }
+
+            builder.Append('\n');
+        }
+
+        builder.Append(' ', indent * 2);
         builder.Append(']');
         End(builder, last);
     }
