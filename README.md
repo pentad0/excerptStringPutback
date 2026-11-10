@@ -4,7 +4,7 @@
 
 ## 必要環境
 
-Windows x64 で実行するだけなら、同梱の exe だけで足ります。.NET のインストールは不要です。テストや exe の作り直しには .NET 8 SDK が必要です。
+Windows x64 で実行するだけなら、同梱の exe だけで足ります。.NET のインストールは不要です。テストや exe の作り直しには .NET 8 以降の SDK が必要です。8 が入っていなければ、それより新しい SDK でビルドします。
 
 ## 使い方
 
@@ -24,7 +24,7 @@ exe\win-x64\excerptStringPutback.exe version
 dotnet test ExcerptStringPutback.sln
 ```
 
-Windows で exe を作り直す場合は `bat\build.bat` を実行します。.NET 8 SDK が必要です。中では次を実行します。
+Windows で exe を作り直す場合は `bat\build.bat` を実行します。.NET 8 以降の SDK で動きます。中では次を実行します。
 
 ```bat
 dotnet publish src\ExcerptStringPutback\ExcerptStringPutback.csproj -c Release -r win-x64 -o exe\win-x64
