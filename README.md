@@ -8,15 +8,6 @@ Windows x64 で実行するだけなら、同梱の exe だけで足ります。
 
 ## 使い方
 
-Windows ではリポジトリ直下の bat を使います。中では `exe\win-x64\excerptStringPutback.exe` を起動します。
-
-```bat
-extract.bat -encoding utf-8 -pattern "(?m)^(?P<id>[^=]+)=(.*)$" -o script.json script.txt
-write.bat -number 1 -o script-out.txt script.json script.txt
-```
-
-exe を直接呼ぶ場合:
-
 ```bat
 exe\win-x64\excerptStringPutback.exe extract -encoding utf-8 -pattern "(?m)^(?P<id>[^=]+)=(.*)$" -o script.json script.txt
 exe\win-x64\excerptStringPutback.exe write -number 1 -o script-out.txt script.json script.txt
@@ -33,10 +24,10 @@ exe\win-x64\excerptStringPutback.exe version
 dotnet test ExcerptStringPutback.sln
 ```
 
-Windows 向けの単一 exe を作り直す場合:
+Windows で exe を作り直す場合は `bat\build.bat` を実行します。.NET 8 SDK が必要です。中では次を実行します。
 
-```bash
-dotnet publish src/ExcerptStringPutback/ExcerptStringPutback.csproj -c Release -r win-x64 -o exe/win-x64
+```bat
+dotnet publish src\ExcerptStringPutback\ExcerptStringPutback.csproj -c Release -r win-x64 -o exe\win-x64
 ```
 
 ## 構成
@@ -46,7 +37,6 @@ ExcerptStringPutback.sln
 src/ExcerptStringPutback/                 コンソールアプリ
 tests/ExcerptStringPutback.Tests/         テスト
 exe/win-x64/excerptStringPutback.exe      Windows x64 向け実行ファイル
-extract.bat
-write.bat
+bat/build.bat                             exe を作り直す
 docs/specification.md
 ```
