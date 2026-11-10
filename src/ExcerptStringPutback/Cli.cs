@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace ExcerptStringPutback;
 
 public static class Cli
@@ -5,11 +7,10 @@ public static class Cli
     public const string Help =
         """
         使い方:
-          excerptStringPutback excerpt <正規表現> <入力ファイル> <抜粋ファイル>
-          excerptStringPutback putback <正規表現> <入力ファイル> <抜粋ファイル> <出力ファイル>
-
-        excerpt  正規表現に一致した部分を TSV へ書き出す。
-        putback  TSV の edited を、同じ正規表現の一致位置へ書き戻す。
+          excerptStringPutback extract -encoding <符号化> -pattern <正規表現> -o <出力.json> <テキストファイル>
+          excerptStringPutback extract -encoding <符号化> -pattern-file <ファイル> -o <出力.json> <テキストファイル>
+          excerptStringPutback write -number <番号> -o <出力ファイル> [-json-out <JSON>] [-disable <方式>] <カタログ.json> <テキストファイル>
+          excerptStringPutback version
         """;
 
     public static int Run(string[] args, TextWriter stdout, TextWriter stderr)
@@ -17,97 +18,182 @@ public static class Cli
         ArgumentNullException.ThrowIfNull(args);
         ArgumentNullException.ThrowIfNull(stdout);
         ArgumentNullException.ThrowIfNull(stderr);
-
-        if (args.Length == 1 && (args[0] == "--help" || args[0] == "-h" || args[0] == "help"))
-        {
-            stdout.WriteLine(Help);
-            return 0;
-        }
-
-        if (args.Length == 0)
-        {
-            stderr.WriteLine(Help);
-            return 1;
-        }
-
         try
         {
+            if (args.Length == 0)
+            {
+                stderr.WriteLine(Help);
+                return 2;
+            }
+
             switch (args[0])
             {
-                case "excerpt" when args.Length == 4:
-                    Excerpt(args[1], args[2], args[3], stdout);
+                case "version" when args.Length == 1:
+                    stdout.WriteLine(ToolInfo.Version);
                     return 0;
-                case "putback" when args.Length == 5:
-                    PutBack(args[1], args[2], args[3], args[4], stdout);
+                case "help" or "--help" or "-h" when args.Length == 1:
+                    stdout.WriteLine(Help);
+                    return 0;
+                case "extract":
+                    Extract(args.Skip(1).ToArray(), stderr);
+                    return 0;
+                case "write":
+                    Write(args.Skip(1).ToArray(), stderr);
                     return 0;
                 default:
-                    stderr.WriteLine(Help);
-                    return 1;
+                    throw new UsageException("未知のコマンドです。");
             }
         }
-        catch (ToolException exception)
+        catch (UsageException ex)
         {
-            stderr.WriteLine($"エラー: {exception.Message}");
+            stderr.WriteLine("エラー: " + ex.Message);
+            stderr.WriteLine(Help);
             return 2;
         }
+        catch (ToolException ex)
+        {
+            stderr.WriteLine("エラー: " + ex.Message);
+            return 1;
+        }
     }
 
-    private static void Excerpt(string pattern, string inputPath, string excerptPath, TextWriter stdout)
+    private static void Extract(string[] args, TextWriter stderr)
     {
-        if (IsSamePath(inputPath, excerptPath))
+        var (flags, positionals) = Parse(args, "-encoding", "-pattern", "-pattern-file", "-o", "-disable");
+        if (positionals.Count != 1 || !flags.ContainsKey("-o"))
         {
-            throw new ToolException("抜粋ファイルは入力ファイルと別のパスにしてください。");
+            throw new UsageException("引数が足りません。");
         }
 
-        var input = TextFile.Read(inputPath);
-        var document = ExcerptDocument.Create(pattern, input.Text);
-        TextFile.Write(excerptPath, new TextFile(document.ToTsv(pattern), HasUtf8Bom: false));
-        stdout.WriteLine($"{document.Records.Count} 件を抜粋しました: {excerptPath}");
+        var hasPattern = flags.ContainsKey("-pattern");
+        var hasPatternFile = flags.ContainsKey("-pattern-file");
+        if (hasPattern == hasPatternFile)
+        {
+            throw new UsageException("-pattern と -pattern-file はどちらか一方を指定します。");
+        }
+
+        var pattern = hasPattern ? flags["-pattern"] : TextCodec.ReadPatternFile(flags["-pattern-file"]);
+        var methods = ToolInfo.Methods.ToList();
+        if (flags.TryGetValue("-disable", out var disabled))
+        {
+            var off = ToolInfo.ParseDisable(disabled);
+            methods = methods.Where(method => !off.Contains(method)).ToList();
+        }
+
+        flags.TryGetValue("-encoding", out var encoding);
+        var catalog = Engine.Extract(positionals[0], pattern, encoding, methods, stderr);
+        CatalogJson.Write(flags["-o"], catalog);
+        stderr.WriteLine($"{catalog.Entries.Count} 件を書き出しました。");
     }
 
-    private static void PutBack(string pattern, string inputPath, string excerptPath, string outputPath, TextWriter stdout)
+    private static void Write(string[] args, TextWriter stderr)
     {
-        if (IsSamePath(excerptPath, outputPath))
+        var (flags, positionals) = Parse(args, "-number", "-o", "-json-out", "-disable");
+        if (positionals.Count != 2 || !flags.ContainsKey("-o"))
         {
-            throw new ToolException("出力ファイルは抜粋ファイルと別のパスにしてください。");
+            throw new UsageException("引数が足りません。");
         }
 
-        var input = TextFile.Read(inputPath);
-        var excerpt = TextFile.Read(excerptPath);
-        var document = ExcerptDocument.Parse(excerpt.Text);
-        if (document.Pattern is not null && document.Pattern != pattern)
+        var catalogPath = positionals[0];
+        var textPath = positionals[1];
+        var textOut = flags["-o"];
+        var jsonOut = flags.TryGetValue("-json-out", out var jsonPath) ? jsonPath : catalogPath;
+        if (IsSamePath(textOut, textPath))
         {
-            throw new ToolException("抜粋ファイルの正規表現と指定した正規表現が違います。");
+            throw new ToolException("元のテキストファイルは変更しません。別の出力先を指定してください。");
         }
 
-        var found = RegexExcerpt.Collect(input.Text, pattern);
-        if (found.Count != document.Records.Count)
+        if (IsSamePath(jsonOut, textOut) || IsSamePath(jsonOut, textPath))
         {
-            throw new ToolException($"正規表現の一致は {found.Count} 件ですが、抜粋ファイルは {document.Records.Count} 件です。");
+            throw new ToolException("JSON の出力先がテキストファイルと同じです。");
         }
 
-        var merged = new List<ExcerptRecord>(found.Count);
-        for (var index = 0; index < found.Count; index++)
+        var catalog = CatalogJson.Read(catalogPath);
+        int number;
+        if (flags.TryGetValue("-number", out var numberText))
         {
-            var record = document.Records[index];
-            if (found[index].Raw != record.Raw)
+            if (!int.TryParse(numberText, NumberStyles.None, CultureInfo.InvariantCulture, out number) || number < 1)
             {
-                throw new ToolException($"文字列 {record.Id} の raw が、現在の正規表現の一致と違います。");
+                throw new ToolException("-number は 1 以上の整数です。");
+            }
+        }
+        else if (catalog.Used < 1)
+        {
+            throw new ToolException("-number が無く、used が 0 です。");
+        }
+        else
+        {
+            number = catalog.Used;
+        }
+
+        var disabled = flags.TryGetValue("-disable", out var disabledText)
+            ? ToolInfo.ParseDisable(disabledText)
+            : new HashSet<string>(StringComparer.Ordinal);
+        var output = Engine.Write(catalog, textPath, number, disabled, stderr);
+        TextCodec.WriteBytes(textOut, output);
+        CatalogJson.Write(jsonOut, catalog);
+        var unmatched = catalog.Entries.Count(entry => entry.Status == "unmatched");
+        stderr.WriteLine(unmatched == 0
+            ? $"{catalog.Entries.Count - unmatched} 件を書き戻しました。"
+            : $"{catalog.Entries.Count - unmatched} 件を書き戻しました。対応しなかった項目は {unmatched} 件です。");
+    }
+
+    private static (Dictionary<string, string> Flags, List<string> Positionals) Parse(string[] args, params string[] allowed)
+    {
+        var flags = new Dictionary<string, string>(StringComparer.Ordinal);
+        var rest = new List<string>();
+        var allowedSet = new HashSet<string>(allowed, StringComparer.Ordinal);
+        for (var i = 0; i < args.Length; i++)
+        {
+            var arg = args[i];
+            if (arg == "--")
+            {
+                rest.AddRange(args.Skip(i + 1));
+                break;
             }
 
-            merged.Add(found[index] with { Edited = record.Edited });
+            if (arg.StartsWith('-') && arg.Length > 1)
+            {
+                var name = arg;
+                string value;
+                var equals = arg.IndexOf('=');
+                if (equals > 0)
+                {
+                    name = arg[..equals];
+                    value = arg[(equals + 1)..];
+                }
+                else
+                {
+                    if (i + 1 >= args.Length)
+                    {
+                        throw new UsageException("引数が足りません。");
+                    }
+
+                    value = args[++i];
+                }
+
+                if (!allowedSet.Contains(name))
+                {
+                    throw new UsageException("未知の引数です。");
+                }
+
+                if (!flags.TryAdd(name, value))
+                {
+                    throw new UsageException("同じ引数が2回あります。");
+                }
+
+                continue;
+            }
+
+            rest.Add(arg);
         }
 
-        var replaced = Putback.Apply(input.Text, merged);
-        TextFile.Write(outputPath, new TextFile(replaced, input.HasUtf8Bom));
-        stdout.WriteLine($"{document.Records.Count} 件を書き戻しました: {outputPath}");
+        return (flags, rest);
     }
 
     private static bool IsSamePath(string left, string right)
     {
-        return string.Equals(Path.GetFullPath(left), Path.GetFullPath(right), PathComparison);
+        var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+        return string.Equals(Path.GetFullPath(left), Path.GetFullPath(right), comparison);
     }
-
-    private static StringComparison PathComparison =>
-        OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
 }

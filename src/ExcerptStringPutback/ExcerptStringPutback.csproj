@@ -5,10 +5,13 @@
     <TargetFramework>net8.0</TargetFramework>
     <RootNamespace>ExcerptStringPutback</RootNamespace>
     <AssemblyName>excerptStringPutback</AssemblyName>
-    <InvariantGlobalization>true</InvariantGlobalization>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="ExcerptStringPutback.Tests" />
+  </ItemGroup>
 
   <PropertyGroup Condition="'$(RuntimeIdentifier)' != ''">
     <SelfContained>true</SelfContained>
