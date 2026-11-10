@@ -4,14 +4,14 @@
 
 ## 必要環境
 
-Windows x64 で実行するだけなら、同梱の exe だけで足ります。.NET のインストールは不要です。テストや exe の作り直しには .NET 8 以降の SDK が必要です。8 が入っていなければ、それより新しい SDK でビルドします。
+Windows x64 の exe は `bat\build.bat` で作り、`bin\win-x64\excerptStringPutback.exe` に出力します。出来た exe は .NET の入っていない PC でも動きます。この exe はリポジトリには含まれません。ビルドとテストには .NET 8 以降の SDK が必要です。8 が入っていなければ、それより新しい SDK でビルドします。
 
 ## 使い方
 
 ```bat
-exe\win-x64\excerptStringPutback.exe extract -encoding utf-8 -pattern "(?m)^(?P<id>[^=]+)=(.*)$" -o script.json script.txt
-exe\win-x64\excerptStringPutback.exe write -number 1 -o script-out.txt script.json script.txt
-exe\win-x64\excerptStringPutback.exe version
+bin\win-x64\excerptStringPutback.exe extract -encoding utf-8 -pattern "(?m)^(?P<id>[^=]+)=(.*)$" -o script.json script.txt
+bin\win-x64\excerptStringPutback.exe write -number 1 -o script-out.txt script.json script.txt
+bin\win-x64\excerptStringPutback.exe version
 ```
 
 `extract` はテキストを変更せず、新しい JSON を作ります。人が編集するのは `names`、`fileVersion`、各項目の `target` です。`write` はカタログの `pattern` を今のテキストに掛け直し、選んだ番号の変更後文字列を原文の位置へ書き込みます。元のテキストは変更しません。`-json-out` を省くと、入力の JSON を更新します。
@@ -24,10 +24,10 @@ exe\win-x64\excerptStringPutback.exe version
 dotnet test ExcerptStringPutback.sln
 ```
 
-Windows で exe を作り直す場合は `bat\build.bat` を実行します。.NET 8 以降の SDK で動きます。中では次を実行します。
+Windows で exe を作る場合は `bat\build.bat` を実行します。.NET 8 以降の SDK で動きます。中では次を実行します。
 
 ```bat
-dotnet publish src\ExcerptStringPutback\ExcerptStringPutback.csproj -c Release -r win-x64 -o exe\win-x64
+dotnet publish src\ExcerptStringPutback\ExcerptStringPutback.csproj -c Release -r win-x64 -o bin\win-x64
 ```
 
 ## 構成
@@ -36,7 +36,6 @@ dotnet publish src\ExcerptStringPutback\ExcerptStringPutback.csproj -c Release -
 ExcerptStringPutback.sln
 src/ExcerptStringPutback/                 コンソールアプリ
 tests/ExcerptStringPutback.Tests/         テスト
-exe/win-x64/excerptStringPutback.exe      Windows x64 向け実行ファイル
-bat/build.bat                             exe を作り直す
+bat/build.bat                             exe を bin/win-x64 に作る
 docs/specification.md
 ```
