@@ -1,8 +1,6 @@
 # excerptStringPutback
 
-正規表現に一致したテキストを TSV へ書き出し、編集した内容を同じ正規表現の位置へ書き戻すツールです。手順は excerptTextPutback に揃えています。フォルダ構成は Go 版の `cmd` / `internal` ではなく、.NET SDK の構成です。
-
-動作の詳細は [docs/specification.md](docs/specification.md) を正とします。
+正規表現でテキストから原文を書き出し、編集した変更後文字列を同じ位置へ書き戻すツールです。受け渡しは JSON のカタログです。正規表現の構文、符号化、バイト位置、対応づけは [docs/specification.md](docs/specification.md) を正とします。フォルダ構成は .NET SDK の構成です。
 
 ## 必要環境
 
@@ -13,18 +11,21 @@ Windows x64 で実行するだけなら、同梱の exe だけで足ります。
 Windows ではリポジトリ直下の bat を使います。中では `exe\win-x64\excerptStringPutback.exe` を起動します。
 
 ```bat
-excerpt.bat "名前:\S+" input.txt excerpt.tsv
-putback.bat "名前:\S+" input.txt excerpt.tsv output.txt
+extract.bat -encoding utf-8 -pattern "(?m)^(?P<id>[^=]+)=(.*)$" -o script.json script.txt
+write.bat -number 1 -o script-out.txt script.json script.txt
 ```
 
 exe を直接呼ぶ場合:
 
 ```bat
-exe\win-x64\excerptStringPutback.exe excerpt "名前:\S+" input.txt excerpt.tsv
-exe\win-x64\excerptStringPutback.exe putback "名前:\S+" input.txt excerpt.tsv output.txt
+exe\win-x64\excerptStringPutback.exe extract -encoding utf-8 -pattern "(?m)^(?P<id>[^=]+)=(.*)$" -o script.json script.txt
+exe\win-x64\excerptStringPutback.exe write -number 1 -o script-out.txt script.json script.txt
+exe\win-x64\excerptStringPutback.exe version
 ```
 
-`excerpt` は入力を変更しません。抜粋ファイルでは `edited` だけを編集し、`id`、`start`、`length`、`raw` は残します。`putback` は同じ正規表現で再検索し、一致したテキストが `raw` と順に同じときだけ `edited` を書き込みます。出力に入力と同じパスを指定すると、そのファイルを置き換えます。
+`extract` はテキストを変更せず、新しい JSON を作ります。人が編集するのは `names`、`fileVersion`、各項目の `target` です。`write` はカタログの `pattern` を今のテキストに掛け直し、選んだ番号の変更後文字列を原文の位置へ書き込みます。元のテキストは変更しません。`-json-out` を省くと、入力の JSON を更新します。
+
+終了コードは 0 が完了、1 がファイルや符号化や正規表現や JSON のエラー、2 が引数の不足や未知のコマンドです。経過と警告は標準エラーに出ます。
 
 ## ビルドとテスト
 
@@ -45,7 +46,7 @@ ExcerptStringPutback.sln
 src/ExcerptStringPutback/                 コンソールアプリ
 tests/ExcerptStringPutback.Tests/         テスト
 exe/win-x64/excerptStringPutback.exe      Windows x64 向け実行ファイル
-excerpt.bat
-putback.bat
+extract.bat
+write.bat
 docs/specification.md
 ```
