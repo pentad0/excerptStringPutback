@@ -49,7 +49,7 @@ internal static class Engine
     {
         if (string.IsNullOrEmpty(catalog.Pattern))
         {
-            throw new ToolException("パターンがありません。");
+            throw new ToolException(Text.Current.PatternMissing);
         }
 
         catalog.Methods = ToolInfo.Order(catalog.Methods);
@@ -63,7 +63,7 @@ internal static class Engine
         var keyNamesOk = catalog.Keys.All(compiled.KeySet.Contains);
         if (active.Contains("key") && catalog.Keys.Count > 0 && !keyNamesOk)
         {
-            stderr.WriteLine("警告: カタログの keys に、今のパターンに無い名前があります。key 方式は使いません。");
+            stderr.WriteLine(Text.Current.KeyNameMissing);
         }
 
         var pairs = new Dictionary<int, (int Span, string Method)>();
@@ -512,7 +512,7 @@ internal static class Engine
             var previous = hits[i - 1];
             if (previous.CharLength > 0 && hits[i].CharIndex < previous.CharIndex + previous.CharLength)
             {
-                throw new ToolException("原文の範囲が重なっています。");
+                throw new ToolException(Text.Current.OverlappingSource);
             }
         }
     }
@@ -531,7 +531,7 @@ internal static class Engine
         {
             if (replacement.Start < cursor || replacement.Length < 0 || replacement.Start > input.Length || replacement.Start + replacement.Length > input.Length)
             {
-                throw new ToolException("原文の範囲が重なっています。");
+                throw new ToolException(Text.Current.OverlappingSource);
             }
 
             stream.Write(input, cursor, replacement.Start - cursor);
@@ -551,7 +551,7 @@ internal static class Engine
         }
         catch (ArgumentException)
         {
-            throw new ToolException("変更後文字列を NFC にできません。");
+            throw new ToolException(Text.Current.CannotNormalize);
         }
     }
 
