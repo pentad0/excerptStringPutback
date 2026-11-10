@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using System.Text.Json;
 
@@ -478,7 +479,53 @@ public class ExcerptStringPutbackTests
         return (File.ReadAllBytes(output), CatalogJson.Parse(File.ReadAllText(json)));
     }
 
+    [Fact]
+    public void Message_language_follows_the_os_and_the_option()
+    {
+        Assert.Contains("Unknown command.", RunInCulture("fr", "nope").Stderr);
+        Assert.Contains("Unknown command.", RunInCulture("en", "nope").Stderr);
+        Assert.Contains("未知のコマンドです。", RunInCulture("ja", "nope").Stderr);
+        Assert.Contains("未知のコマンドです。", RunInCulture("en", "-language", "ja", "nope").Stderr);
+        Assert.Contains("Unknown command.", RunInCulture("ja", "nope", "-language", "en").Stderr);
+        Assert.Contains("Unknown command.", RunInCulture("ja", "-language=en-US", "nope").Stderr);
+        Assert.Contains("未知のコマンドです。", RunInCulture("en", "-language", "ja-JP", "nope").Stderr);
+        Assert.Contains("言語は en か ja です。", RunInCulture("ja", "-language", "fr").Stderr);
+        Assert.Contains("Language must be en or ja.", RunInCulture("fr", "-language", "de").Stderr);
+        Assert.Equal(2, RunInCulture("ja", "-language", "fr").Code);
+        Assert.Contains("Usage:", RunInCulture("fr").Stderr);
+        Assert.Contains("使い方:", RunInCulture("ja-JP").Stderr);
+        using var dir = Temp();
+        var text = Path.Combine(dir, "in.txt");
+        var json = Path.Combine(dir, "out.json");
+        File.WriteAllText(text, "a");
+        Assert.Contains("Extracted 1 entries.", RunInCulture("en", "extract", "-encoding", "utf-8", "-pattern", "(.*)", "-o", json, text).Stderr);
+    }
+
     private static (int Code, string Stdout, string Stderr) Run(params string[] args)
+    {
+        if (!args.Contains("-language") && !args.Any(arg => arg.StartsWith("-language=", StringComparison.Ordinal)))
+        {
+            args = args.Append("-language").Append("ja").ToArray();
+        }
+
+        return RunRaw(args);
+    }
+
+    private static (int Code, string Stdout, string Stderr) RunInCulture(string culture, params string[] args)
+    {
+        var previous = CultureInfo.CurrentUICulture;
+        CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo(culture);
+        try
+        {
+            return RunRaw(args);
+        }
+        finally
+        {
+            CultureInfo.CurrentUICulture = previous;
+        }
+    }
+
+    private static (int Code, string Stdout, string Stderr) RunRaw(string[] args)
     {
         var stdout = new StringWriter();
         var stderr = new StringWriter();

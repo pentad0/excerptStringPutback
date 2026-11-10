@@ -25,9 +25,9 @@ internal sealed class Hit
 
 internal sealed class Re2Pattern
 {
-    public const string Invalid = "正規表現が不正です。";
+    private static string Invalid => Text.Current.InvalidPattern;
 
-    public const string Lookaround = "先読み、後読み、後方参照は使えません。";
+    private static string Lookaround => Text.Current.Lookaround;
 
     private static readonly Dictionary<string, string> Posix = new(StringComparer.Ordinal)
     {
@@ -196,7 +196,7 @@ internal sealed class Re2Pattern
             sourceName = SourceName;
             if (!seen.Add(SourceName))
             {
-                throw new ToolException("同じ名前のキャプチャが2つあります。");
+                throw new ToolException(Text.Current.DuplicateCaptureName);
             }
 
             PushGroup("(?<" + SourceName + ">");
@@ -277,7 +277,7 @@ internal sealed class Re2Pattern
 
         if (!seen.Add(name))
         {
-            throw new ToolException("同じ名前のキャプチャが2つあります。");
+            throw new ToolException(Text.Current.DuplicateCaptureName);
         }
 
         groupNumber++;
@@ -1024,7 +1024,7 @@ internal sealed class Compiled
         }
         catch (RegexMatchTimeoutException)
         {
-            throw new ToolException("正規表現の照合が時間内に終わりませんでした。");
+            throw new ToolException(Text.Current.MatchTimeout);
         }
 
         var text = decoded.Text;
