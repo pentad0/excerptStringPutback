@@ -4,7 +4,7 @@
 
 ## 必要環境
 
-Windows x64 の exe は `bat\build.bat` で作り、`bin\win-x64\excerptStringPutback.exe` に出力します。出来た exe は .NET の入っていない PC でも動きます。この exe はリポジトリには含まれません。ビルドとテストには .NET 8 以降の SDK が必要です。8 が入っていなければ、それより新しい SDK でビルドします。
+Windows x64 の exe は `bat\build.bat` で作り、`bin\win-x64\excerptStringPutback.exe` に出力します。出来た exe は .NET の入っていない PC でも動きます。同じバッチは `bin\dll\excerptStringPutback.dll` も作ります。この DLL を読む側には .NET 8 以降が必要です。exe と DLL はリポジトリには含まれません。ビルドとテストには .NET 8 以降の SDK が必要です。8 が入っていなければ、それより新しい SDK でビルドします。
 
 ## 使い方
 
@@ -24,10 +24,11 @@ bin\win-x64\excerptStringPutback.exe version
 dotnet test ExcerptStringPutback.sln
 ```
 
-Windows で exe を作る場合は `bat\build.bat` を実行します。.NET 8 以降の SDK で動きます。中では次を実行します。
+Windows で exe と DLL を作る場合は `bat\build.bat` を実行します。.NET 8 以降の SDK で動きます。中では次を実行します。
 
 ```bat
 dotnet publish src\ExcerptStringPutback\ExcerptStringPutback.csproj -c Release -r win-x64 -o bin\win-x64
+dotnet publish src\ExcerptStringPutback\ExcerptStringPutback.csproj -c Release -o bin\dll -p:UseAppHost=false -p:DebugType=none -p:DebugSymbols=false
 ```
 
 ## 構成
@@ -36,6 +37,6 @@ dotnet publish src\ExcerptStringPutback\ExcerptStringPutback.csproj -c Release -
 ExcerptStringPutback.sln
 src/ExcerptStringPutback/                 コンソールアプリ
 tests/ExcerptStringPutback.Tests/         テスト
-bat/build.bat                             exe を bin/win-x64 に作る
+bat/build.bat                             exe を bin/win-x64 に、DLL を bin/dll に作る
 docs/specification.md
 ```
