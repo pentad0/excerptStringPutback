@@ -7,3 +7,11 @@ public sealed class ToolException : Exception
     {
     }
 }
+
+public sealed class UsageException : Exception
+{
+    public UsageException(string message)
+        : base(message)
+    {
+    }
+}
