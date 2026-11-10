@@ -73,7 +73,7 @@ internal static class ToolInfo
         {
             if (!Methods.Contains(name, StringComparer.Ordinal))
             {
-                throw new ToolException($"未知の方式名です: {name}");
+                throw new ToolException(Text.Current.Format(Text.Current.UnknownMethod, name));
             }
 
             set.Add(name);
@@ -90,7 +90,7 @@ internal static class ToolInfo
             var name = part.Trim();
             if (name.Length == 0 || !Methods.Contains(name, StringComparer.Ordinal))
             {
-                throw new ToolException($"未知の方式名です: {name}");
+                throw new ToolException(Text.Current.Format(Text.Current.UnknownMethod, name));
             }
 
             set.Add(name);
@@ -111,20 +111,20 @@ internal static class CatalogJson
         }
         catch (FileNotFoundException)
         {
-            throw new ToolException($"ファイルが見つかりません: {path}");
+            throw new ToolException(Text.Current.Format(Text.Current.FileNotFound, path));
         }
         catch (DirectoryNotFoundException)
         {
-            throw new ToolException($"ファイルが見つかりません: {path}");
+            throw new ToolException(Text.Current.Format(Text.Current.FileNotFound, path));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            throw new ToolException($"ファイルを読めません: {path}");
+            throw new ToolException(Text.Current.Format(Text.Current.CannotRead, path));
         }
 
         if (bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF)
         {
-            throw new ToolException("JSON は BOM なしの UTF-8 です。");
+            throw new ToolException(Text.Current.JsonBom);
         }
 
         string text;
@@ -134,7 +134,7 @@ internal static class CatalogJson
         }
         catch (DecoderFallbackException)
         {
-            throw new ToolException("JSON を UTF-8 として読めません。");
+            throw new ToolException(Text.Current.JsonUtf8);
         }
 
         return Parse(text);
@@ -149,14 +149,14 @@ internal static class CatalogJson
         }
         catch (JsonException)
         {
-            throw new ToolException("JSON の形式が違います。");
+            throw new ToolException(Text.Current.JsonShape);
         }
 
         using (document)
         {
             if (document.RootElement.ValueKind != JsonValueKind.Object)
             {
-                throw new ToolException("JSON の形式が違います。");
+                throw new ToolException(Text.Current.JsonShape);
             }
 
             var root = document.RootElement;
@@ -165,7 +165,7 @@ internal static class CatalogJson
                 !versionElement.TryGetInt32(out var version) ||
                 version != ToolInfo.FormatVersion)
             {
-                throw new ToolException("formatVersion が 1 ではありません。");
+                throw new ToolException(Text.Current.FormatVersion);
             }
 
             var catalog = new Catalog
@@ -188,7 +188,7 @@ internal static class CatalogJson
             };
             if (catalog.Used < 0)
             {
-                throw new ToolException("used が不正です。");
+                throw new ToolException(Text.Current.UsedInvalid);
             }
 
             return catalog;
@@ -262,7 +262,7 @@ internal static class CatalogJson
     {
         if (!root.TryGetProperty("entries", out var entries) || entries.ValueKind != JsonValueKind.Array)
         {
-            throw new ToolException("entries は配列です。");
+            throw new ToolException(Text.Current.EntriesArray);
         }
 
         var list = new List<Entry>();
@@ -270,7 +270,7 @@ internal static class CatalogJson
         {
             if (item.ValueKind != JsonValueKind.Object)
             {
-                throw new ToolException("JSON の形式が違います。");
+                throw new ToolException(Text.Current.JsonShape);
             }
 
             list.Add(new Entry
@@ -300,7 +300,7 @@ internal static class CatalogJson
 
         if (element.ValueKind != JsonValueKind.String)
         {
-            throw new ToolException("JSON の形式が違います。");
+            throw new ToolException(Text.Current.JsonShape);
         }
 
         return element.GetString() ?? "";
@@ -315,7 +315,7 @@ internal static class CatalogJson
 
         if (element.ValueKind is not JsonValueKind.True and not JsonValueKind.False)
         {
-            throw new ToolException("JSON の形式が違います。");
+            throw new ToolException(Text.Current.JsonShape);
         }
 
         return element.GetBoolean();
@@ -330,7 +330,7 @@ internal static class CatalogJson
 
         if (element.ValueKind != JsonValueKind.Number || !element.TryGetInt32(out var value) || value < 0)
         {
-            throw new ToolException("JSON の形式が違います。");
+            throw new ToolException(Text.Current.JsonShape);
         }
 
         return value;
@@ -350,7 +350,7 @@ internal static class CatalogJson
     {
         if (element.ValueKind != JsonValueKind.Array)
         {
-            throw new ToolException($"{name} は配列です。");
+            throw new ToolException(Text.Current.Format(Text.Current.MustBeArray, name));
         }
 
         var list = new List<string>();
@@ -358,7 +358,7 @@ internal static class CatalogJson
         {
             if (item.ValueKind != JsonValueKind.String)
             {
-                throw new ToolException($"{name} は文字列の配列です。");
+                throw new ToolException(Text.Current.Format(Text.Current.MustBeStringArray, name));
             }
 
             list.Add(item.GetString() ?? "");

@@ -280,9 +280,9 @@ JSON の形や、フィールドの意味、配列の並び、番号の数え方
 ## 6. コマンド
 
 ```text
-excerptStringPutback extract -encoding <符号化> -pattern <正規表現> [-disable <方式>] -o <出力.json> <テキストファイル>
-excerptStringPutback extract -encoding <符号化> -pattern-file <ファイル> [-disable <方式>] -o <出力.json> <テキストファイル>
-excerptStringPutback write -number <番号> -o <出力ファイル> [-json-out <JSON>] [-disable <方式>] <カタログ.json> <テキストファイル>
+excerptStringPutback extract [-language en|ja] -encoding <符号化> -pattern <正規表現> [-disable <方式>] -o <出力.json> <テキストファイル>
+excerptStringPutback extract [-language en|ja] -encoding <符号化> -pattern-file <ファイル> [-disable <方式>] -o <出力.json> <テキストファイル>
+excerptStringPutback write [-language en|ja] -number <番号> -o <出力ファイル> [-json-out <JSON>] [-disable <方式>] <カタログ.json> <テキストファイル>
 ```
 
 | 終了コード | 意味 |
@@ -291,7 +291,7 @@ excerptStringPutback write -number <番号> -o <出力ファイル> [-json-out <
 | 1 | ファイル、符号化、正規表現、JSON のエラー |
 | 2 | 引数の不足や未知のコマンド |
 
-標準出力には結果のファイルを書きません。経過と警告は標準エラーです。`-pattern-file` は先頭の UTF-8 BOM を外し、末尾の改行を1つだけ除いてパターンにします。
+標準出力には結果のファイルを書きません。経過と警告は標準エラーです。エラー、警告、使い方などのメッセージは、`-language` で英語（`en`）と日本語（`ja`）に切り替えます。省略したときは OS の表示言語に合わせます。表示言語が日本語ならメッセージは日本語、英語なら英語、それ以外は英語です。`-pattern-file` は先頭の UTF-8 BOM を外し、末尾の改行を1つだけ除いてパターンにします。
 
 `-disable` はカンマ区切りです。未知の方式名はエラーです。
 
