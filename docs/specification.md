@@ -82,7 +82,7 @@ pattern: (?m)^(?P<chapter>\d+)\t(?P<id>\d+)\t(.*)
 
 ## 3. JSON
 
-テキストファイル1つにつき JSON を1つ作ります。JSON 自体は常に UTF-8、BOM なし、インデント2スペースです。`<` や `&` は `\u003c` の形にはしません。
+テキストファイル1つにつき JSON を1つ作ります。JSON 自体は常に UTF-8、BOM なし、インデント2スペースです。中身のある配列は要素を1行ずつにします。空の配列は `[]` のままです。`<` や `&` は `\u003c` の形にはしません。
 
 未知のフィールドは、ツールが書き出すときに残しません。JSON に足しても、`write` のあとには消えます。
 
@@ -110,30 +110,51 @@ JSON の形や、フィールドの意味、配列の並び、番号の数え方
   "encoding": "utf-8",
   "bom": false,
   "pattern": "(?m)^(?P<key>[A-Z0-9_]+)=(.*)$",
-  "keys": ["key"],
-  "names": ["ですます", "常体"],
+  "keys": [
+    "key"
+  ],
+  "names": [
+    "ですます",
+    "常体"
+  ],
   "used": 2,
-  "methods": ["key", "offset", "exact", "context", "align", "revised"],
+  "methods": [
+    "key",
+    "offset",
+    "exact",
+    "context",
+    "align",
+    "revised"
+  ],
   "entries": [
     {
-      "key": ["MSG_01"],
+      "key": [
+        "MSG_01"
+      ],
       "before": "MSG_01=",
       "source": "Hello",
       "after": "",
       "previousSource": "",
-      "target": ["こんにちは", "やあ\\n世界"],
+      "target": [
+        "こんにちは",
+        "やあ\\n世界"
+      ],
       "byteStart": 7,
       "byteLength": 5,
       "status": "exact",
       "matchedBy": "key"
     },
     {
-      "key": ["MSG_03"],
+      "key": [
+        "MSG_03"
+      ],
       "before": "MSG_03=",
       "source": "Yes",
       "after": "",
       "previousSource": "",
-      "target": ["はい"],
+      "target": [
+        "はい"
+      ],
       "byteStart": 39,
       "byteLength": 3,
       "status": "unmatched",
