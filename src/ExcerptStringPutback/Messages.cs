@@ -22,9 +22,9 @@ internal sealed class Messages
         Help =
             """
             Usage:
-              excerptStringPutback extract -encoding <encoding> -pattern <regex> -o <out.json> <text file>
-              excerptStringPutback extract -encoding <encoding> -pattern-file <file> -o <out.json> <text file>
-              excerptStringPutback write -number <n> -o <outfile> [-json-out <json>] [-disable <methods>] <catalog.json> <text file>
+              excerptStringPutback excerpt -encoding <encoding> -pattern <regex> -o <out.json> <text file>
+              excerptStringPutback excerpt -encoding <encoding> -pattern-file <file> -o <out.json> <text file>
+              excerptStringPutback putback -number <n> -o <outfile> [-json-out <json>] [-disable <methods>] <catalog.json> <text file>
               excerptStringPutback version
               -language en|ja    Switch messages between English and Japanese. The default follows the OS language when it is English or Japanese, and is English otherwise.
             """,
@@ -80,9 +80,9 @@ internal sealed class Messages
         Help =
             """
             使い方:
-              excerptStringPutback extract -encoding <符号化> -pattern <正規表現> -o <出力.json> <テキストファイル>
-              excerptStringPutback extract -encoding <符号化> -pattern-file <ファイル> -o <出力.json> <テキストファイル>
-              excerptStringPutback write -number <番号> -o <出力ファイル> [-json-out <JSON>] [-disable <方式>] <カタログ.json> <テキストファイル>
+              excerptStringPutback excerpt -encoding <符号化> -pattern <正規表現> -o <出力.json> <テキストファイル>
+              excerptStringPutback excerpt -encoding <符号化> -pattern-file <ファイル> -o <出力.json> <テキストファイル>
+              excerptStringPutback putback -number <番号> -o <出力ファイル> [-json-out <JSON>] [-disable <方式>] <カタログ.json> <テキストファイル>
               excerptStringPutback version
               -language en|ja    メッセージを英語か日本語に切り替える。省略時は OS の表示言語。日本語と英語以外は英語
             """,

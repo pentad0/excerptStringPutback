@@ -44,10 +44,10 @@ public static class Cli
                 case "help" or "--help" or "-h" when rest.Length == 1:
                     stdout.WriteLine(text.Help);
                     return 0;
-                case "extract":
+                case "excerpt":
                     Extract(rest.Skip(1).ToArray(), stderr);
                     return 0;
-                case "write":
+                case "putback":
                     Write(rest.Skip(1).ToArray(), stderr);
                     return 0;
                 default:
