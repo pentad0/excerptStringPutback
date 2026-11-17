@@ -14,7 +14,7 @@ public class ExcerptStringPutbackTests
         File.WriteAllText(text, "1\t15\tHello\n");
         var json = Path.Combine(dir, "out.json");
         var (code, stdout, stderr) = Run(
-            "extract", "-encoding", "utf-8",
+            "excerpt", "-encoding", "utf-8",
             "-pattern", "(?m)^(?P<chapter>\\d+)\\t(?P<id>\\d+)\\t(.*)",
             "-o", json, text);
 
@@ -91,18 +91,18 @@ public class ExcerptStringPutbackTests
         var utf8 = Path.Combine(dir, "utf8.txt");
         File.WriteAllBytes(utf8, new byte[] { 0xEF, 0xBB, 0xBF, (byte)'A', (byte)'B' });
         var json = Path.Combine(dir, "utf8.json");
-        Assert.Equal(0, Run("extract", "-encoding", "utf-16le", "-pattern", "(.*)", "-o", json, utf8).Code);
+        Assert.Equal(0, Run("excerpt", "-encoding", "utf-16le", "-pattern", "(.*)", "-o", json, utf8).Code);
         var entry = Assert.Single(CatalogJson.Parse(File.ReadAllText(json)).Entries);
         Assert.Equal(3, entry.ByteStart);
         Assert.Equal(2, entry.ByteLength);
         Assert.Equal("utf-8", CatalogJson.Parse(File.ReadAllText(json)).Encoding);
         Assert.True(CatalogJson.Parse(File.ReadAllText(json)).Bom);
-        Assert.Contains("BOM を優先", Run("extract", "-encoding", "utf-16le", "-pattern", "(.*)", "-o", json, utf8).Stderr);
+        Assert.Contains("BOM を優先", Run("excerpt", "-encoding", "utf-16le", "-pattern", "(.*)", "-o", json, utf8).Stderr);
 
         var utf16 = Path.Combine(dir, "utf16.txt");
         File.WriteAllBytes(utf16, new byte[] { 0xFF, 0xFE, 0x41, 0x00, 0x42, 0x00 });
         var json16 = Path.Combine(dir, "utf16.json");
-        Assert.Equal(0, Run("extract", "-encoding", "utf-16le", "-pattern", "(.*)", "-o", json16, utf16).Code);
+        Assert.Equal(0, Run("excerpt", "-encoding", "utf-16le", "-pattern", "(.*)", "-o", json16, utf16).Code);
         var wide = Assert.Single(CatalogJson.Parse(File.ReadAllText(json16)).Entries);
         Assert.Equal("AB", wide.Source);
         Assert.Equal(2, wide.ByteStart);
@@ -116,24 +116,24 @@ public class ExcerptStringPutbackTests
         var bare = Path.Combine(dir, "bare.txt");
         File.WriteAllBytes(bare, "AB"u8.ToArray());
         var json = Path.Combine(dir, "out.json");
-        Assert.Equal(1, Run("extract", "-pattern", "(.*)", "-o", json, bare).Code);
-        Assert.Equal(1, Run("extract", "-encoding", "utf-8", "-pattern", "(.*)", "-o", json, Path.Combine(dir, "missing.txt")).Code);
+        Assert.Equal(1, Run("excerpt", "-pattern", "(.*)", "-o", json, bare).Code);
+        Assert.Equal(1, Run("excerpt", "-encoding", "utf-8", "-pattern", "(.*)", "-o", json, Path.Combine(dir, "missing.txt")).Code);
 
         var bad = Path.Combine(dir, "bad.txt");
         File.WriteAllBytes(bad, new byte[] { 0xFF });
-        Assert.Equal(1, Run("extract", "-encoding", "utf-8", "-pattern", "(.*)", "-o", json, bad).Code);
+        Assert.Equal(1, Run("excerpt", "-encoding", "utf-8", "-pattern", "(.*)", "-o", json, bad).Code);
 
         var utf32 = Path.Combine(dir, "utf32.txt");
         File.WriteAllBytes(utf32, new byte[] { 0xFF, 0xFE, 0x00, 0x00 });
-        Assert.Contains("UTF-32", Run("extract", "-encoding", "utf-8", "-pattern", "(.*)", "-o", json, utf32).Stderr);
+        Assert.Contains("UTF-32", Run("excerpt", "-encoding", "utf-8", "-pattern", "(.*)", "-o", json, utf32).Stderr);
 
         var odd = Path.Combine(dir, "odd.txt");
         File.WriteAllBytes(odd, new byte[] { 0xFF, 0xFE, 0x41, 0x00, 0x42 });
-        Assert.Contains("奇数", Run("extract", "-encoding", "utf-16le", "-pattern", "(.*)", "-o", json, odd).Stderr);
+        Assert.Contains("奇数", Run("excerpt", "-encoding", "utf-16le", "-pattern", "(.*)", "-o", json, odd).Stderr);
 
         var lone = Path.Combine(dir, "lone.txt");
         File.WriteAllBytes(lone, new byte[] { 0xFF, 0xFE, 0x00, 0xD8 });
-        Assert.Contains("サロゲート", Run("extract", "-encoding", "utf-16le", "-pattern", "(.*)", "-o", json, lone).Stderr);
+        Assert.Contains("サロゲート", Run("excerpt", "-encoding", "utf-16le", "-pattern", "(.*)", "-o", json, lone).Stderr);
     }
 
     [Fact]
@@ -171,7 +171,7 @@ public class ExcerptStringPutbackTests
         bytes.AddRange(Encoding.UTF8.GetBytes("(.*)\n"));
         File.WriteAllBytes(pattern, bytes.ToArray());
         var json = Path.Combine(dir, "out.json");
-        Assert.Equal(0, Run("extract", "-encoding", "utf-8", "-pattern-file", pattern, "-o", json, text).Code);
+        Assert.Equal(0, Run("excerpt", "-encoding", "utf-8", "-pattern-file", pattern, "-o", json, text).Code);
         Assert.Equal("AB", Assert.Single(CatalogJson.Parse(File.ReadAllText(json)).Entries).Source);
     }
 
@@ -183,7 +183,7 @@ public class ExcerptStringPutbackTests
         File.WriteAllBytes(text, "MSG=Hello\n"u8.ToArray());
         var original = File.ReadAllBytes(text);
         var json = Path.Combine(dir, "cat.json");
-        Assert.Equal(0, Run("extract", "-encoding", "utf-8", "-pattern", "(?m)^(?P<id>[^=]+)=(.*)$", "-o", json, text).Code);
+        Assert.Equal(0, Run("excerpt", "-encoding", "utf-8", "-pattern", "(?m)^(?P<id>[^=]+)=(.*)$", "-o", json, text).Code);
         var catalog = CatalogJson.Parse(File.ReadAllText(json));
         catalog.Entries[0].Target[0] = "こんにちは";
         catalog.Names.Add("常体");
@@ -191,7 +191,7 @@ public class ExcerptStringPutbackTests
         catalog.Program = "excerptTextPutback";
         File.WriteAllText(json, CatalogJson.ToJson(catalog));
         var output = Path.Combine(dir, "out.txt");
-        var (code, stdout, stderr) = Run("write", "-o", output, json, text);
+        var (code, stdout, stderr) = Run("putback", "-o", output, json, text);
         Assert.Equal(0, code);
         Assert.Equal("", stdout);
         Assert.Contains("1 件を書き戻しました。", stderr);
@@ -330,9 +330,9 @@ public class ExcerptStringPutbackTests
         var text = Path.Combine(dir, "in.txt");
         File.WriteAllBytes(text, bytes);
         var json = Path.Combine(dir, "cat.json");
-        Assert.Equal(0, Run("extract", "-encoding", "utf-8", "-pattern", "(.*)", "-o", json, text).Code);
+        Assert.Equal(0, Run("excerpt", "-encoding", "utf-8", "-pattern", "(.*)", "-o", json, text).Code);
         var output = Path.Combine(dir, "out.txt");
-        Assert.Equal(0, Run("write", "-o", output, json, text).Code);
+        Assert.Equal(0, Run("putback", "-o", output, json, text).Code);
         Assert.Equal(bytes, File.ReadAllBytes(output));
     }
 
@@ -376,7 +376,7 @@ public class ExcerptStringPutbackTests
         """);
         var output = Path.Combine(dir, "out.txt");
         var updated = Path.Combine(dir, "new.json");
-        Assert.Equal(0, Run("write", "-disable", "offset", "-o", output, "-json-out", updated, json, text).Code);
+        Assert.Equal(0, Run("putback", "-disable", "offset", "-o", output, "-json-out", updated, json, text).Code);
         Assert.Equal("Bye", File.ReadAllText(output));
         var raw = File.ReadAllText(updated);
         Assert.DoesNotContain("note", raw, StringComparison.Ordinal);
@@ -386,7 +386,7 @@ public class ExcerptStringPutbackTests
         Assert.Equal(new[] { "exact", "revised" }, catalog.Methods);
         Assert.Equal("1.0.0", catalog.ToolVersion);
         Assert.Equal("3", catalog.FileVersion);
-        Assert.Contains("未知の方式名です: nope", Run("write", "-disable", "nope", "-o", output, json, text).Stderr);
+        Assert.Contains("未知の方式名です: nope", Run("putback", "-disable", "nope", "-o", output, json, text).Stderr);
     }
 
     [Fact]
@@ -398,25 +398,25 @@ public class ExcerptStringPutbackTests
         var json = Path.Combine(dir, "cat.json");
         var output = Path.Combine(dir, "out.txt");
         File.WriteAllText(json, """{"program":"x","entries":[]}""");
-        Assert.Equal(1, Run("write", "-o", output, json, text).Code);
+        Assert.Equal(1, Run("putback", "-o", output, json, text).Code);
         Assert.False(File.Exists(output));
 
         File.WriteAllText(json, """
         {"formatVersion":2,"pattern":"(.*)","encoding":"utf-8","entries":[]}
         """);
-        Assert.Equal(1, Run("write", "-o", output, json, text).Code);
+        Assert.Equal(1, Run("putback", "-o", output, json, text).Code);
 
         File.WriteAllText(json, """
         {"formatVersion":1,"pattern":"(.*)","encoding":"utf-8","used":0,"entries":[]}
         """);
-        Assert.Contains("used", Run("write", "-o", output, json, text).Stderr);
+        Assert.Contains("used", Run("putback", "-o", output, json, text).Stderr);
         Assert.False(File.Exists(output));
 
         Assert.Equal(2, Run().Code);
         Assert.Equal(2, Run("nope").Code);
         Assert.Equal(0, Run("version").Code);
         Assert.Equal("1.0.0\n", Run("version").Stdout);
-        Assert.Equal("", Run("extract", "-encoding", "utf-8", "-pattern", "(.*)", "-o", json, text).Stdout);
+        Assert.Equal("", Run("excerpt", "-encoding", "utf-8", "-pattern", "(.*)", "-o", json, text).Stdout);
     }
 
     [Fact]
@@ -426,8 +426,8 @@ public class ExcerptStringPutbackTests
         var text = Path.Combine(dir, "in.txt");
         File.WriteAllText(text, "Hello");
         var json = Path.Combine(dir, "cat.json");
-        Assert.Equal(0, Run("extract", "-encoding", "utf-8", "-pattern", "(.*)", "-o", json, text).Code);
-        Assert.Equal(1, Run("write", "-o", text, json, text).Code);
+        Assert.Equal(0, Run("excerpt", "-encoding", "utf-8", "-pattern", "(.*)", "-o", json, text).Code);
+        Assert.Equal(1, Run("putback", "-o", text, json, text).Code);
         Assert.Equal("Hello", File.ReadAllText(text));
     }
 
@@ -438,7 +438,7 @@ public class ExcerptStringPutbackTests
         var text = Path.Combine(dir, "in.txt");
         File.WriteAllText(text, "Hello");
         var json = Path.Combine(dir, "out.json");
-        Assert.Equal(0, Run("extract", "-encoding", "utf-8", "-pattern", "(Hello)", "-disable", "offset,revised", "-o", json, text).Code);
+        Assert.Equal(0, Run("excerpt", "-encoding", "utf-8", "-pattern", "(Hello)", "-disable", "offset,revised", "-o", json, text).Code);
         Assert.Equal(new[] { "key", "exact", "context", "align" }, CatalogJson.Parse(File.ReadAllText(json)).Methods);
     }
 
@@ -457,7 +457,7 @@ public class ExcerptStringPutbackTests
         var input = Path.Combine(dir, "in.txt");
         File.WriteAllText(input, text);
         var json = Path.Combine(dir, "out.json");
-        var result = Run("extract", "-encoding", "utf-8", "-pattern", pattern, "-o", json, input);
+        var result = Run("excerpt", "-encoding", "utf-8", "-pattern", pattern, "-o", json, input);
         Assert.True(result.Code == 0, result.Stderr);
         return CatalogJson.Parse(File.ReadAllText(json));
     }
@@ -467,7 +467,7 @@ public class ExcerptStringPutbackTests
         using var dir = Temp();
         var input = Path.Combine(dir, "in.txt");
         File.WriteAllText(input, text);
-        var result = Run("extract", "-encoding", "utf-8", "-pattern", pattern, "-o", Path.Combine(dir, "out.json"), input);
+        var result = Run("excerpt", "-encoding", "utf-8", "-pattern", pattern, "-o", Path.Combine(dir, "out.json"), input);
         return (result.Code, result.Stderr);
     }
 
@@ -479,7 +479,7 @@ public class ExcerptStringPutbackTests
         var json = Path.Combine(dir, "cat.json");
         File.WriteAllText(json, CatalogJson.ToJson(catalog));
         var output = Path.Combine(dir, "out.txt");
-        var args = new List<string> { "write", "-o", output };
+        var args = new List<string> { "putback", "-o", output };
         if (disabled is not null)
         {
             args.Add("-disable");
@@ -512,7 +512,7 @@ public class ExcerptStringPutbackTests
         var text = Path.Combine(dir, "in.txt");
         var json = Path.Combine(dir, "out.json");
         File.WriteAllText(text, "a");
-        Assert.Contains("Extracted 1 entries.", RunInCulture("en", "extract", "-encoding", "utf-8", "-pattern", "(.*)", "-o", json, text).Stderr);
+        Assert.Contains("Extracted 1 entries.", RunInCulture("en", "excerpt", "-encoding", "utf-8", "-pattern", "(.*)", "-o", json, text).Stderr);
     }
 
     private static (int Code, string Stdout, string Stderr) Run(params string[] args)

@@ -2,7 +2,7 @@
 
 この文書は、書き出しと書き戻しの処理と、その間で受け渡す JSON を定義します。
 
-このリポジトリのコマンド名は `excerptStringPutback` です。抽出した JSON の `program` には `excerptStringPutback` が入ります。`write` は `program` を書き換えないので、`excerptTextPutback` が作った JSON も読めます。
+このリポジトリのコマンド名は `excerptStringPutback` です。抽出した JSON の `program` には `excerptStringPutback` が入ります。`putback` は `program` を書き換えないので、`excerptTextPutback` が作った JSON も読めます。
 
 先読み、後読み、後方参照は使えません。使えない構文は、抽出時にエラーになります。
 
@@ -84,7 +84,7 @@ pattern: (?m)^(?P<chapter>\d+)\t(?P<id>\d+)\t(.*)
 
 テキストファイル1つにつき JSON を1つ作ります。JSON 自体は常に UTF-8、BOM なし、インデント2スペースです。中身のある配列は要素を1行ずつにします。空の配列は `[]` のままです。`<` や `&` は `\u003c` の形にはしません。
 
-未知のフィールドは、ツールが書き出すときに残しません。JSON に足しても、`write` のあとには消えます。
+未知のフィールドは、ツールが書き出すときに残しません。JSON に足しても、`putback` のあとには消えます。
 
 フィールドは次の2段だけです。`program`、`formatVersion`、`toolVersion`、`fileVersion`、`pattern`、`names`、`keys`、`used`、`methods` は先頭に1つずつです。`program` は JSON の最初のフィールドです。項目の中には繰り返しません。
 
@@ -217,7 +217,7 @@ JSON の形や、フィールドの意味、配列の並び、番号の数え方
 
 ## 4. 書き出し
 
-`extract` はテキストファイルと正規表現から、新しい JSON を作ります。既存の JSON に入っている変更後文字列は引き継ぎません。変更後文字列を残したまま更新するのは `write` だけです。
+`excerpt` はテキストファイルと正規表現から、新しい JSON を作ります。既存の JSON に入っている変更後文字列は引き継ぎません。変更後文字列を残したまま更新するのは `putback` だけです。
 
 手順は次のとおりです。
 
@@ -234,7 +234,7 @@ JSON の形や、フィールドの意味、配列の並び、番号の数え方
 
 ## 5. 書き戻し
 
-`write` は、カタログの `pattern` を今のテキストファイルに掛け直し、既存の項目と対応づけます。元のテキストファイルは変更しません。新しいテキストファイルを `-o` へ書き、カタログの対応づけ結果を更新します。
+`putback` は、カタログの `pattern` を今のテキストファイルに掛け直し、既存の項目と対応づけます。元のテキストファイルは変更しません。新しいテキストファイルを `-o` へ書き、カタログの対応づけ結果を更新します。
 
 読む符号化はカタログの `encoding` を指定として使い、ファイル側に BOM があれば BOM を優先します。出力の符号化と BOM は、そのとき実際に読んだものに合わせ、カタログの `encoding` と `bom` と `file` もそれに更新します。
 
@@ -301,9 +301,9 @@ JSON の形や、フィールドの意味、配列の並び、番号の数え方
 ## 6. コマンド
 
 ```text
-excerptStringPutback extract [-language en|ja] -encoding <符号化> -pattern <正規表現> [-disable <方式>] -o <出力.json> <テキストファイル>
-excerptStringPutback extract [-language en|ja] -encoding <符号化> -pattern-file <ファイル> [-disable <方式>] -o <出力.json> <テキストファイル>
-excerptStringPutback write [-language en|ja] -number <番号> -o <出力ファイル> [-json-out <JSON>] [-disable <方式>] <カタログ.json> <テキストファイル>
+excerptStringPutback excerpt [-language en|ja] -encoding <符号化> -pattern <正規表現> [-disable <方式>] -o <出力.json> <テキストファイル>
+excerptStringPutback excerpt [-language en|ja] -encoding <符号化> -pattern-file <ファイル> [-disable <方式>] -o <出力.json> <テキストファイル>
+excerptStringPutback putback [-language en|ja] -number <番号> -o <出力ファイル> [-json-out <JSON>] [-disable <方式>] <カタログ.json> <テキストファイル>
 ```
 
 | 終了コード | 意味 |
@@ -322,4 +322,4 @@ excerptStringPutback write [-language en|ja] -number <番号> -o <出力ファ�
 
 JSON は UTF-8（BOM なし）で保存します。
 
-このツールは、その JSON を `write` で受け取ります。
+このツールは、その JSON を `putback` で受け取ります。
