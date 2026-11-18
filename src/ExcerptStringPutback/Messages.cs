@@ -71,7 +71,6 @@ internal sealed class Messages
         EntriesArray = "entries must be an array.",
         MustBeArray = "{0} must be an array.",
         MustBeStringArray = "{0} must be an array of strings.",
-        MustBeStringOrArray = "{0} must be a string or an array of strings.",
     };
 
     public static readonly Messages Japanese = new()
@@ -129,7 +128,6 @@ internal sealed class Messages
         EntriesArray = "entries は配列です。",
         MustBeArray = "{0} は配列です。",
         MustBeStringArray = "{0} は文字列の配列です。",
-        MustBeStringOrArray = "{0} は文字列か、文字列の配列です。",
     };
 
     public required string ErrorPrefix { get; init; }
@@ -221,8 +219,6 @@ internal sealed class Messages
     public required string MustBeArray { get; init; }
 
     public required string MustBeStringArray { get; init; }
-
-    public required string MustBeStringOrArray { get; init; }
 
     public static Messages ForCulture(CultureInfo culture)
     {
