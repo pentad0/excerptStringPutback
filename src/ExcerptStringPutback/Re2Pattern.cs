@@ -18,6 +18,10 @@ internal sealed class Hit
 
     public required string[] Key { get; init; }
 
+    public required string Text { get; init; }
+
+    public required int Order { get; init; }
+
     public required int ByteStart { get; init; }
 
     public required int ByteLength { get; init; }
@@ -50,16 +54,14 @@ internal sealed class Re2Pattern
     private readonly string pattern;
     private readonly StringBuilder output = new();
     private readonly List<string> keys = new();
+    private readonly List<string> texts = new();
     private readonly HashSet<string> seen = new(StringComparer.Ordinal);
     private readonly Stack<Flags> frames = new();
     private readonly Stack<Flags> emittedStack = new();
     private Flags current;
     private Flags emitted;
-    private const string SourceName = "excerptSource";
 
     private int index;
-    private int groupNumber;
-    private string? sourceName;
     private bool haveAtom;
     private bool lastRepeat;
 
@@ -76,7 +78,7 @@ internal sealed class Re2Pattern
         try
         {
             var regex = new Regex(translated, RegexOptions.CultureInvariant, TimeSpan.FromSeconds(30));
-            return new Compiled(regex, parser.keys, parser.sourceName);
+            return new Compiled(regex, parser.keys, parser.texts);
         }
         catch (ArgumentException)
         {
@@ -189,21 +191,7 @@ internal sealed class Re2Pattern
             return;
         }
 
-        index++;
-        groupNumber++;
-        if (sourceName is null)
-        {
-            sourceName = SourceName;
-            if (!seen.Add(SourceName))
-            {
-                throw new ToolException(Text.Current.DuplicateCaptureName);
-            }
-
-            PushGroup("(?<" + SourceName + ">");
-            return;
-        }
-
-        PushGroup("(");
+        throw new ToolException(Text.Current.UnnamedCapture);
     }
 
     private void OpenSpecial()
@@ -214,17 +202,23 @@ internal sealed class Re2Pattern
             throw new ToolException(Invalid);
         }
 
+        if (StartsWithRole("Key"))
+        {
+            ParseRole(text: false);
+            return;
+        }
+
+        if (StartsWithRole("Text"))
+        {
+            ParseRole(text: true);
+            return;
+        }
+
         var c = pattern[index];
         if (c == ':')
         {
             index++;
             PushGroup("(?:");
-            return;
-        }
-
-        if (c == 'P' || c == '<')
-        {
-            ParseNamed();
             return;
         }
 
@@ -241,22 +235,28 @@ internal sealed class Re2Pattern
         ParseFlags();
     }
 
-    private void ParseNamed()
+    private bool StartsWithRole(string marker)
     {
-        if (pattern[index] == 'P')
+        var end = index + marker.Length;
+        if (end >= pattern.Length || pattern[end] != '<')
         {
-            index++;
-            if (index >= pattern.Length || pattern[index] != '<')
-            {
-                throw new ToolException(Invalid);
-            }
-        }
-        else if (index + 1 < pattern.Length && pattern[index + 1] is '=' or '!')
-        {
-            throw new ToolException(Lookaround);
+            return false;
         }
 
-        index++;
+        for (var i = 0; i < marker.Length; i++)
+        {
+            if (pattern[index + i] != marker[i])
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private void ParseRole(bool text)
+    {
+        index += (text ? "Text" : "Key").Length + 1;
         var start = index;
         while (index < pattern.Length && pattern[index] != '>')
         {
@@ -280,8 +280,15 @@ internal sealed class Re2Pattern
             throw new ToolException(Text.Current.DuplicateCaptureName);
         }
 
-        groupNumber++;
-        keys.Add(name);
+        if (text)
+        {
+            texts.Add(name);
+        }
+        else
+        {
+            keys.Add(name);
+        }
+
         PushGroup("(?<" + name + ">");
     }
 
@@ -1001,19 +1008,23 @@ internal sealed class Re2Pattern
 internal sealed class Compiled
 {
     private readonly Regex regex;
-    private readonly string? sourceName;
 
-    public Compiled(Regex regex, IReadOnlyList<string> keys, string? sourceName)
+    public Compiled(Regex regex, IReadOnlyList<string> keys, IReadOnlyList<string> texts)
     {
         this.regex = regex;
-        this.sourceName = sourceName;
         Keys = keys;
+        Texts = texts;
         KeySet = new HashSet<string>(keys, StringComparer.Ordinal);
+        TextSet = new HashSet<string>(texts, StringComparer.Ordinal);
     }
 
     public IReadOnlyList<string> Keys { get; }
 
+    public IReadOnlyList<string> Texts { get; }
+
     public HashSet<string> KeySet { get; }
+
+    public HashSet<string> TextSet { get; }
 
     public IReadOnlyList<Hit> Find(DecodedText decoded)
     {
@@ -1036,28 +1047,6 @@ internal sealed class Compiled
                 continue;
             }
 
-            int sourceIndex;
-            int sourceLength;
-            if (sourceName is null)
-            {
-                sourceIndex = match.Index;
-                sourceLength = match.Length;
-            }
-            else
-            {
-                var group = match.Groups[sourceName];
-                if (!group.Success || group.Index < match.Index || group.Index + group.Length > match.Index + match.Length)
-                {
-                    sourceIndex = match.Index + match.Length;
-                    sourceLength = 0;
-                }
-                else
-                {
-                    sourceIndex = group.Index;
-                    sourceLength = group.Length;
-                }
-            }
-
             var key = new string[Keys.Count];
             for (var i = 0; i < Keys.Count; i++)
             {
@@ -1065,20 +1054,53 @@ internal sealed class Compiled
                 key[i] = group.Success ? group.Value : "";
             }
 
-            var afterStart = sourceIndex + sourceLength;
-            hits.Add(new Hit
+            if (Texts.Count == 0)
             {
-                CharIndex = sourceIndex,
-                CharLength = sourceLength,
-                Before = text.Substring(match.Index, sourceIndex - match.Index),
-                Source = text.Substring(sourceIndex, sourceLength),
-                After = text.Substring(afterStart, match.Index + match.Length - afterStart),
-                Key = key,
-                ByteStart = decoded.ByteIndex(sourceIndex),
-                ByteLength = decoded.ByteLength(sourceIndex, sourceLength),
-            });
+                hits.Add(MakeHit(decoded, text, match, match.Index, match.Length, "", 0, key));
+                continue;
+            }
+
+            for (var i = 0; i < Texts.Count; i++)
+            {
+                var group = match.Groups[Texts[i]];
+                if (!group.Success || group.Index < match.Index || group.Index + group.Length > match.Index + match.Length)
+                {
+                    continue;
+                }
+
+                hits.Add(MakeHit(decoded, text, match, group.Index, group.Length, Texts[i], i, key));
+            }
         }
 
+        hits.Sort(static (left, right) =>
+        {
+            var byIndex = left.CharIndex.CompareTo(right.CharIndex);
+            if (byIndex != 0)
+            {
+                return byIndex;
+            }
+
+            var byLength = left.CharLength.CompareTo(right.CharLength);
+            return byLength != 0 ? byLength : left.Order.CompareTo(right.Order);
+        });
         return hits;
+    }
+
+    private static Hit MakeHit(DecodedText decoded, string text, Match match, int sourceIndex, int sourceLength, string textName, int order, string[] key)
+    {
+        var afterStart = sourceIndex + sourceLength;
+        return new Hit
+        {
+            CharIndex = sourceIndex,
+            CharLength = sourceLength,
+            Before = text.Substring(match.Index, sourceIndex - match.Index),
+            Source = text.Substring(sourceIndex, sourceLength),
+            After = text.Substring(afterStart, match.Index + match.Length - afterStart),
+            Key = key.ToArray(),
+            Text = textName,
+            Order = order,
+            ByteStart = decoded.ByteIndex(sourceIndex),
+            ByteLength = decoded.ByteLength(sourceIndex, sourceLength),
+        };
     }
 }

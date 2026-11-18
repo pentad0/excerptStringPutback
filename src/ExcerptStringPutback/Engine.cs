@@ -22,6 +22,7 @@ internal static class Engine
             Bom = decoded.Bom,
             Pattern = pattern,
             Keys = compiled.Keys.ToList(),
+            Texts = TextNames(compiled),
             Names = new List<string> { "changed" },
             Used = 1,
             Methods = methods.ToList(),
@@ -31,6 +32,7 @@ internal static class Engine
             catalog.Entries.Add(new Entry
             {
                 Key = hit.Key.ToList(),
+                Text = hit.Text,
                 Before = hit.Before,
                 Source = hit.Source,
                 After = hit.After,
@@ -62,9 +64,15 @@ internal static class Engine
 
         var active = catalog.Methods.Where(method => !disabled.Contains(method)).ToHashSet(StringComparer.Ordinal);
         var keyNamesOk = catalog.Keys.All(compiled.KeySet.Contains);
+        var textNamesOk = catalog.Texts.All(name => TextNameAvailable(compiled, name));
         if (active.Contains("key") && catalog.Keys.Count > 0 && !keyNamesOk)
         {
             stderr.WriteLine(Text.Current.KeyNameMissing);
+        }
+
+        if (active.Contains("key") && catalog.Texts.Count > 0 && !textNamesOk)
+        {
+            stderr.WriteLine(Text.Current.TextNameMissing);
         }
 
         var pairs = new Dictionary<int, (int Span, string Method)>();
@@ -75,7 +83,7 @@ internal static class Engine
             usedSpans.Add(span);
         }
 
-        if (active.Contains("key") && catalog.Keys.Count > 0 && keyNamesOk)
+        if (active.Contains("key") && keyNamesOk && textNamesOk && (catalog.Keys.Count > 0 || compiled.Texts.Count > 0))
         {
             PairKey(catalog, compiled, hits, Pair);
         }
@@ -112,7 +120,7 @@ internal static class Engine
 
             var target = entry.Target[number - 1];
             var hit = hits[pair.Span];
-            replacements.Add(new Replacement(hit.ByteStart, hit.ByteLength, decoded.Encoding.GetBytes(ToNfc(target))));
+            replacements.Add(new Replacement(hit.ByteStart, hit.ByteLength, decoded.Encoding.GetBytes(ToNfc(target)), hit.Order));
             written[entryIndex] = pair;
         }
 
@@ -129,6 +137,7 @@ internal static class Engine
 
             var hit = hits[pair.Span];
             var oldSource = entry.Source;
+            entry.Text = hit.Text;
             entry.Before = hit.Before;
             entry.Source = hit.Source;
             entry.After = hit.After;
@@ -154,6 +163,7 @@ internal static class Engine
         }
 
         catalog.ToolVersion = ToolInfo.Version;
+        catalog.Texts = TextNames(compiled);
         catalog.Used = number;
         catalog.Encoding = decoded.EncodingName;
         catalog.Bom = decoded.Bom;
@@ -161,11 +171,21 @@ internal static class Engine
         return Splice(decoded.Bytes, replacements);
     }
 
+    private static List<string> TextNames(Compiled compiled)
+    {
+        return compiled.Texts.Count == 0 ? [""] : compiled.Texts.ToList();
+    }
+
+    private static bool TextNameAvailable(Compiled compiled, string name)
+    {
+        return name.Length == 0 ? compiled.Texts.Count == 0 : compiled.TextSet.Contains(name);
+    }
+
     private static void PairKey(Catalog catalog, Compiled compiled, IReadOnlyList<Hit> hits, Action<int, int, string> pair)
     {
-        var entries = Group(catalog.Entries.Select((entry, index) => (index, Key: entry.Key.ToArray()))
-            .Where(item => item.Key.Length == catalog.Keys.Count));
-        var spans = Group(hits.Select((hit, index) => (index, Key: KeyInCatalogOrder(catalog, compiled, hit).ToArray())));
+        var entries = Group(catalog.Entries.Select((entry, index) => (index, Key: new MatchKey(entry.Key.ToArray(), entry.Text)))
+            .Where(item => item.Key.Values.Length == catalog.Keys.Count));
+        var spans = Group(hits.Select((hit, index) => (index, Key: new MatchKey(KeyInCatalogOrder(catalog, compiled, hit).ToArray(), hit.Text))));
         foreach (var (key, entryIndexes) in entries)
         {
             if (entryIndexes.Count == 1 && spans.TryGetValue(key, out var spanIndexes) && spanIndexes.Count == 1)
@@ -432,9 +452,9 @@ internal static class Engine
         return pairs;
     }
 
-    private static Dictionary<string[], List<int>> Group(IEnumerable<(int Index, string[] Key)> items)
+    private static Dictionary<MatchKey, List<int>> Group(IEnumerable<(int Index, MatchKey Key)> items)
     {
-        var groups = new Dictionary<string[], List<int>>(StringArrayComparer.Instance);
+        var groups = new Dictionary<MatchKey, List<int>>(MatchKeyComparer.Instance);
         foreach (var (index, key) in items)
         {
             if (!groups.TryGetValue(key, out var list))
@@ -506,7 +526,8 @@ internal static class Engine
         for (var i = 1; i < hits.Count; i++)
         {
             var previous = hits[i - 1];
-            if (previous.CharLength > 0 && hits[i].CharIndex < previous.CharIndex + previous.CharLength)
+            if (hits[i].CharIndex < previous.CharIndex + previous.CharLength &&
+                previous.CharIndex < hits[i].CharIndex + hits[i].CharLength)
             {
                 throw new ToolException(Text.Current.OverlappingSource);
             }
@@ -520,7 +541,17 @@ internal static class Engine
             return input;
         }
 
-        replacements.Sort((left, right) => left.Start.CompareTo(right.Start));
+        replacements.Sort((left, right) =>
+        {
+            var byStart = left.Start.CompareTo(right.Start);
+            if (byStart != 0)
+            {
+                return byStart;
+            }
+
+            var byLength = left.Length.CompareTo(right.Length);
+            return byLength != 0 ? byLength : left.Order.CompareTo(right.Order);
+        });
         using var stream = new MemoryStream(input.Length);
         var cursor = 0;
         foreach (var replacement in replacements)
@@ -558,7 +589,28 @@ internal static class Engine
 
     private readonly record struct Context(string Before, string Source, string After);
 
-    private readonly record struct Replacement(int Start, int Length, byte[] Data);
+    private readonly record struct Replacement(int Start, int Length, byte[] Data, int Order);
+
+    private readonly record struct MatchKey(string[] Values, string Text);
+
+    private sealed class MatchKeyComparer : IEqualityComparer<MatchKey>
+    {
+        public static readonly MatchKeyComparer Instance = new();
+
+        public bool Equals(MatchKey x, MatchKey y)
+        {
+            return string.Equals(x.Text, y.Text, StringComparison.Ordinal)
+                && StringArrayComparer.Instance.Equals(x.Values, y.Values);
+        }
+
+        public int GetHashCode(MatchKey obj)
+        {
+            var hash = new HashCode();
+            hash.Add(StringArrayComparer.Instance.GetHashCode(obj.Values));
+            hash.Add(obj.Text, StringComparer.Ordinal);
+            return hash.ToHashCode();
+        }
+    }
 
     private sealed class StringArrayComparer : IEqualityComparer<string[]>
     {

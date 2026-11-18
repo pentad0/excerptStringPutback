@@ -9,7 +9,7 @@ Windows x64 の exe は `bat\win-x64.bat` で作り、`bin\win-x64\excerptString
 ## 使い方
 
 ```bat
-bin\win-x64\excerptStringPutback.exe excerpt -encoding utf-8 -pattern "(?m)^(?P<id>[^=]+)=(.*)$" -o script.json script.txt
+bin\win-x64\excerptStringPutback.exe excerpt -encoding utf-8 -pattern "(?m)^(?Key<id>[^=]+)=(?Text<value>.*)$" -o script.json script.txt
 bin\win-x64\excerptStringPutback.exe putback -number 1 -o script-out.txt script.json script.txt
 bin\win-x64\excerptStringPutback.exe putback -number 1 -o script.txt script.json script.txt
 bin\win-x64\excerptStringPutback.exe version

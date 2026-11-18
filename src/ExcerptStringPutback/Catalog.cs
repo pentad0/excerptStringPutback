@@ -8,6 +8,8 @@ internal sealed class Entry
 {
     public List<string> Key { get; set; } = new();
 
+    public string Text { get; set; } = "";
+
     public string Before { get; set; } = "";
 
     public string Source { get; set; } = "";
@@ -49,6 +51,8 @@ internal sealed class Catalog
 
     public List<string> Keys { get; set; } = new();
 
+    public List<string> Texts { get; set; } = new();
+
     public List<string> Names { get; set; } = new();
 
     public int Used { get; set; }
@@ -67,9 +71,9 @@ internal static class ToolInfo
 {
     public const string ProgramName = "excerptStringPutback";
 
-    public const string Version = "1.0.0";
+    public const string Version = "1.1.0";
 
-    public const int FormatVersion = 1;
+    public const int FormatVersion = 2;
 
     public static readonly string[] Methods = ["key", "offset", "exact", "context", "align", "revised"];
 
@@ -187,6 +191,7 @@ internal static class CatalogJson
                 Bom = OptionalBool(root, "bom"),
                 Pattern = OptionalString(root, "pattern"),
                 Keys = OptionalStrings(root, "keys"),
+                Texts = OptionalStrings(root, "texts"),
                 Names = OptionalStrings(root, "names"),
                 Used = OptionalInt(root, "used"),
                 Methods = root.TryGetProperty("methods", out var methods)
@@ -222,6 +227,7 @@ internal static class CatalogJson
         BoolProp(builder, 1, "bom", catalog.Bom);
         StringProp(builder, 1, "pattern", catalog.Pattern);
         StringsProp(builder, 1, "keys", catalog.Keys);
+        StringsProp(builder, 1, "texts", catalog.Texts);
         StringsProp(builder, 1, "names", catalog.Names);
         IntProp(builder, 1, "used", catalog.Used);
         StringsProp(builder, 1, "methods", catalog.Methods);
@@ -255,6 +261,7 @@ internal static class CatalogJson
     {
         builder.Append("    {\n");
         StringsProp(builder, 3, "key", entry.Key);
+        StringProp(builder, 3, "text", entry.Text);
         StringProp(builder, 3, "before", entry.Before);
         StringProp(builder, 3, "source", entry.Source);
         StringProp(builder, 3, "after", entry.After);
@@ -285,6 +292,7 @@ internal static class CatalogJson
             list.Add(new Entry
             {
                 Key = OptionalStrings(item, "key"),
+                Text = OptionalString(item, "text"),
                 Before = OptionalString(item, "before"),
                 Source = OptionalString(item, "source"),
                 After = OptionalString(item, "after"),

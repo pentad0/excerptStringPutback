@@ -57,16 +57,18 @@ internal sealed class Messages
         InvalidPattern = "The regular expression is invalid.",
         Lookaround = "Lookahead, lookbehind, and backreferences are not allowed.",
         DuplicateCaptureName = "The same capture name is used twice.",
+        UnnamedCapture = "An unnamed capture is not allowed. Use (?:...), (?Key<name>...), or (?Text<name>...).",
         MatchTimeout = "The regular expression match did not finish in time.",
         PatternMissing = "The pattern is missing.",
         KeyNameMissing = "Warning: A catalog key name is missing from the current pattern. The key method will not be used.",
+        TextNameMissing = "Warning: A catalog text name is missing from the current pattern. The key method will not be used.",
         OverlappingSource = "Source ranges overlap.",
         CannotNormalize = "The replacement cannot be normalized to NFC.",
         UnknownMethod = "Unknown method name: {0}",
         JsonBom = "JSON must be UTF-8 without a BOM.",
         JsonUtf8 = "The JSON is not valid UTF-8.",
         JsonShape = "The JSON format is invalid.",
-        FormatVersion = "formatVersion is not 1.",
+        FormatVersion = "formatVersion is not 2.",
         UsedInvalid = "used is invalid.",
         EntriesArray = "entries must be an array.",
         MustBeArray = "{0} must be an array.",
@@ -114,16 +116,18 @@ internal sealed class Messages
         InvalidPattern = "正規表現が不正です。",
         Lookaround = "先読み、後読み、後方参照は使えません。",
         DuplicateCaptureName = "同じ名前のキャプチャが2つあります。",
+        UnnamedCapture = "名前の無いキャプチャは使えません。(?:...)、(?Key<名前>...)、(?Text<名前>...) を使ってください。",
         MatchTimeout = "正規表現の照合が時間内に終わりませんでした。",
         PatternMissing = "パターンがありません。",
         KeyNameMissing = "警告: カタログの keys に、今のパターンに無い名前があります。key 方式は使いません。",
+        TextNameMissing = "警告: カタログの texts に、今のパターンに無い名前があります。key 方式は使いません。",
         OverlappingSource = "原文の範囲が重なっています。",
         CannotNormalize = "変更後文字列を NFC にできません。",
         UnknownMethod = "未知の方式名です: {0}",
         JsonBom = "JSON は BOM なしの UTF-8 です。",
         JsonUtf8 = "JSON を UTF-8 として読めません。",
         JsonShape = "JSON の形式が違います。",
-        FormatVersion = "formatVersion が 1 ではありません。",
+        FormatVersion = "formatVersion が 2 ではありません。",
         UsedInvalid = "used が不正です。",
         EntriesArray = "entries は配列です。",
         MustBeArray = "{0} は配列です。",
@@ -192,11 +196,15 @@ internal sealed class Messages
 
     public required string DuplicateCaptureName { get; init; }
 
+    public required string UnnamedCapture { get; init; }
+
     public required string MatchTimeout { get; init; }
 
     public required string PatternMissing { get; init; }
 
     public required string KeyNameMissing { get; init; }
+
+    public required string TextNameMissing { get; init; }
 
     public required string OverlappingSource { get; init; }
 
