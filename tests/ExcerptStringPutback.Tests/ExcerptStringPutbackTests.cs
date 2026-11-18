@@ -296,21 +296,36 @@ public class ExcerptStringPutbackTests
     }
 
     [Fact]
-    public void Empty_or_missing_target_is_not_written()
+    public void Empty_target_clears_the_source_and_a_missing_target_is_not_written()
     {
         var catalog = Extract("Hello", "(Hello)");
         catalog.Entries[0].Target[0] = "";
         var output = Apply(catalog, "Hello");
-        Assert.Equal("Hello", Encoding.UTF8.GetString(output.Bytes));
-        Assert.Equal("unmatched", output.Catalog.Entries[0].Status);
-        Assert.Equal("", output.Catalog.Entries[0].MatchedBy);
+        Assert.Equal("", Encoding.UTF8.GetString(output.Bytes));
+        Assert.Equal("exact", output.Catalog.Entries[0].Status);
+        Assert.Equal("offset", output.Catalog.Entries[0].MatchedBy);
+        Assert.Equal("Hello", output.Catalog.Entries[0].Source);
         Assert.Equal(new[] { "" }, output.Catalog.Entries[0].Target);
+
+        var kept = Extract("MSG=Hello\n", "(?m)^(?P<id>[^=]+)=(.*)$");
+        kept.Entries[0].Target[0] = "";
+        var cleared = Apply(kept, "MSG=Hello\n");
+        Assert.Equal("MSG=\n", Encoding.UTF8.GetString(cleared.Bytes));
+        Assert.Equal("key", cleared.Catalog.Entries[0].MatchedBy);
+        Assert.Equal("Hello", cleared.Catalog.Entries[0].Source);
 
         catalog.Entries[0].Target = new List<string> { "one", "two" };
         catalog.Used = 2;
         var second = Apply(catalog, "Hello");
         Assert.Equal("two", Encoding.UTF8.GetString(second.Bytes));
         Assert.Equal(2, second.Catalog.Used);
+
+        catalog.Entries[0].Target = new List<string> { "one" };
+        var missing = Apply(catalog, "Hello");
+        Assert.Equal("Hello", Encoding.UTF8.GetString(missing.Bytes));
+        Assert.Equal("unmatched", missing.Catalog.Entries[0].Status);
+        Assert.Equal("", missing.Catalog.Entries[0].MatchedBy);
+        Assert.Equal(new[] { "one" }, missing.Catalog.Entries[0].Target);
     }
 
     [Fact]
