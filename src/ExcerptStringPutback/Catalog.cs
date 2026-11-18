@@ -37,6 +37,8 @@ internal sealed class Catalog
 
     public string FileVersion { get; set; } = "";
 
+    public NoteValue Note { get; set; } = new();
+
     public string File { get; set; } = "";
 
     public string Encoding { get; set; } = "";
@@ -54,6 +56,11 @@ internal sealed class Catalog
     public List<string> Methods { get; set; } = new();
 
     public List<Entry> Entries { get; set; } = new();
+}
+
+internal sealed class NoteValue
+{
+    public string Json { get; set; } = "\"\"";
 }
 
 internal static class ToolInfo
@@ -174,6 +181,7 @@ internal static class CatalogJson
                 FormatVersion = version,
                 ToolVersion = OptionalString(root, "toolVersion"),
                 FileVersion = OptionalString(root, "fileVersion"),
+                Note = OptionalNote(root, "note"),
                 File = OptionalString(root, "file"),
                 Encoding = OptionalString(root, "encoding"),
                 Bom = OptionalBool(root, "bom"),
@@ -208,6 +216,7 @@ internal static class CatalogJson
         IntProp(builder, 1, "formatVersion", catalog.FormatVersion);
         StringProp(builder, 1, "toolVersion", catalog.ToolVersion);
         StringProp(builder, 1, "fileVersion", catalog.FileVersion);
+        NoteProp(builder, 1, "note", catalog.Note);
         StringProp(builder, 1, "file", catalog.File);
         StringProp(builder, 1, "encoding", catalog.Encoding);
         BoolProp(builder, 1, "bom", catalog.Bom);
@@ -291,6 +300,16 @@ internal static class CatalogJson
         return list;
     }
 
+    private static NoteValue OptionalNote(JsonElement root, string name)
+    {
+        if (!root.TryGetProperty(name, out var element))
+        {
+            return new NoteValue();
+        }
+
+        return new NoteValue { Json = element.GetRawText() };
+    }
+
     private static string OptionalString(JsonElement root, string name)
     {
         if (!root.TryGetProperty(name, out var element) || element.ValueKind == JsonValueKind.Null)
@@ -365,6 +384,99 @@ internal static class CatalogJson
         }
 
         return list;
+    }
+
+    private static void NoteProp(StringBuilder builder, int indent, string name, NoteValue note, bool last = false)
+    {
+        Prefix(builder, indent, name);
+        using var document = JsonDocument.Parse(note.Json);
+        WriteValue(builder, document.RootElement, indent);
+        End(builder, last);
+    }
+
+    private static void WriteValue(StringBuilder builder, JsonElement element, int indent)
+    {
+        switch (element.ValueKind)
+        {
+            case JsonValueKind.String:
+                WriteString(builder, element.GetString() ?? "");
+                break;
+            case JsonValueKind.Array:
+                WriteArray(builder, element, indent);
+                break;
+            case JsonValueKind.Object:
+                WriteObject(builder, element, indent);
+                break;
+            default:
+                builder.Append(element.GetRawText());
+                break;
+        }
+    }
+
+    private static void WriteArray(StringBuilder builder, JsonElement element, int indent)
+    {
+        var items = new List<JsonElement>();
+        foreach (var item in element.EnumerateArray())
+        {
+            items.Add(item);
+        }
+
+        if (items.Count == 0)
+        {
+            builder.Append("[]");
+            return;
+        }
+
+        builder.Append("[\n");
+        var child = indent + 1;
+        for (var i = 0; i < items.Count; i++)
+        {
+            builder.Append(' ', child * 2);
+            WriteValue(builder, items[i], child);
+            if (i + 1 < items.Count)
+            {
+                builder.Append(',');
+            }
+
+            builder.Append('\n');
+        }
+
+        builder.Append(' ', indent * 2);
+        builder.Append(']');
+    }
+
+    private static void WriteObject(StringBuilder builder, JsonElement element, int indent)
+    {
+        var properties = new List<JsonProperty>();
+        foreach (var property in element.EnumerateObject())
+        {
+            properties.Add(property);
+        }
+
+        if (properties.Count == 0)
+        {
+            builder.Append("{}");
+            return;
+        }
+
+        builder.Append("{\n");
+        var child = indent + 1;
+        for (var i = 0; i < properties.Count; i++)
+        {
+            builder.Append(' ', child * 2);
+            WriteString(builder, properties[i].Name);
+            builder.Append(": ");
+            WriteValue(builder, properties[i].Value, child);
+            if (i + 1 < properties.Count)
+            {
+                builder.Append(',');
+            }
+
+            builder.Append('\n');
+        }
+
+        builder.Append(' ', indent * 2);
+        builder.Append('}');
     }
 
     private static void StringProp(StringBuilder builder, int indent, string name, string value, bool last = false)

@@ -37,12 +37,14 @@ public class ExcerptStringPutbackTests
         Assert.Equal(new[] { "changed" }, catalog.Names);
         Assert.Equal(1, catalog.Used);
         Assert.Equal("", catalog.FileVersion);
+        Assert.Equal("\"\"", catalog.Note.Json);
         Assert.Equal("excerptStringPutback", catalog.Program);
         Assert.Equal("1.0.0", catalog.ToolVersion);
         Assert.Equal(1, catalog.FormatVersion);
         Assert.Equal(ToolInfo.Methods, catalog.Methods);
         var raw = File.ReadAllText(json);
         Assert.StartsWith("{\n  \"program\": \"excerptStringPutback\"", raw, StringComparison.Ordinal);
+        Assert.Contains("  \"fileVersion\": \"\",\n  \"note\": \"\",\n", raw, StringComparison.Ordinal);
         Assert.DoesNotContain("\\u003c", raw, StringComparison.Ordinal);
     }
 
@@ -349,7 +351,7 @@ public class ExcerptStringPutbackTests
           "formatVersion": 1,
           "toolVersion": "9.9.9",
           "fileVersion": "3",
-          "note": "drop me",
+          "extra": "drop me",
           "file": "old.txt",
           "encoding": "utf-8",
           "bom": false,
@@ -379,7 +381,8 @@ public class ExcerptStringPutbackTests
         Assert.Equal(0, Run("putback", "-disable", "offset", "-o", output, "-json-out", updated, json, text).Code);
         Assert.Equal("Bye", File.ReadAllText(output));
         var raw = File.ReadAllText(updated);
-        Assert.DoesNotContain("note", raw, StringComparison.Ordinal);
+        Assert.DoesNotContain("extra", raw, StringComparison.Ordinal);
+        Assert.Contains("\"note\": \"\"", raw, StringComparison.Ordinal);
         Assert.Equal("Hello", File.ReadAllText(text));
         Assert.Contains("\"toolVersion\": \"9.9.9\"", File.ReadAllText(json), StringComparison.Ordinal);
         var catalog = CatalogJson.Parse(raw);
@@ -387,6 +390,100 @@ public class ExcerptStringPutbackTests
         Assert.Equal("1.0.0", catalog.ToolVersion);
         Assert.Equal("3", catalog.FileVersion);
         Assert.Contains("未知の方式名です: nope", Run("putback", "-disable", "nope", "-o", output, json, text).Stderr);
+    }
+
+    [Fact]
+    public void Note_keeps_any_json_value_and_putback_does_not_read_it()
+    {
+        using var dir = Temp();
+        var text = Path.Combine(dir, "in.txt");
+        File.WriteAllText(text, "Hello");
+        var json = Path.Combine(dir, "cat.json");
+        var output = Path.Combine(dir, "out.txt");
+        File.WriteAllText(json, """
+        {
+          "formatVersion": 1,
+          "note": "メモ",
+          "pattern": "(Hello)",
+          "encoding": "utf-8",
+          "used": 1,
+          "entries": [
+            {
+              "source": "Hello",
+              "target": ["Bye"],
+              "byteStart": 0,
+              "byteLength": 5
+            }
+          ]
+        }
+        """);
+        Assert.Equal(0, Run("putback", "-o", output, json, text).Code);
+        Assert.Equal("Bye", File.ReadAllText(output));
+        Assert.Equal("Hello", File.ReadAllText(text));
+        var raw = File.ReadAllText(json);
+        Assert.Contains("\"note\": \"メモ\"", raw, StringComparison.Ordinal);
+        Assert.DoesNotContain("メモ", File.ReadAllText(output), StringComparison.Ordinal);
+        Assert.Equal("\"メモ\"", CatalogJson.Parse(raw).Note.Json);
+
+        File.WriteAllText(text, "Hello");
+        File.WriteAllText(json, """
+        {
+          "formatVersion": 1,
+          "note": ["tag", "a<b"],
+          "pattern": "(Hello)",
+          "encoding": "utf-8",
+          "used": 1,
+          "entries": [
+            {
+              "source": "Hello",
+              "target": ["Bye"],
+              "byteStart": 0,
+              "byteLength": 5
+            }
+          ]
+        }
+        """);
+        Assert.Equal(0, Run("putback", "-o", output, json, text).Code);
+        raw = File.ReadAllText(json);
+        Assert.Contains("  \"note\": [\n    \"tag\",\n    \"a<b\"\n  ],\n", raw, StringComparison.Ordinal);
+        Assert.DoesNotContain("\\u003c", raw, StringComparison.Ordinal);
+        File.WriteAllText(json, """
+        {"formatVersion":1,"note":[],"used":1,"pattern":"(Hello)","encoding":"utf-8","entries":[]}
+        """);
+        Assert.Equal(0, Run("putback", "-o", output, json, text).Code);
+        Assert.Contains("\"note\": []", File.ReadAllText(json), StringComparison.Ordinal);
+
+        File.WriteAllText(json, """
+        {"formatVersion":1,"note":null,"used":1,"pattern":"(Hello)","encoding":"utf-8","entries":[]}
+        """);
+        Assert.Equal(0, Run("putback", "-o", output, json, text).Code);
+        Assert.Contains("\"note\": null", File.ReadAllText(json), StringComparison.Ordinal);
+
+        File.WriteAllText(json, """
+        {"formatVersion":1,"note":1.50,"used":1,"pattern":"(Hello)","encoding":"utf-8","entries":[]}
+        """);
+        Assert.Equal(0, Run("putback", "-o", output, json, text).Code);
+        Assert.Contains("\"note\": 1.50", File.ReadAllText(json), StringComparison.Ordinal);
+
+        File.WriteAllText(json, """
+        {"formatVersion":1,"note":true,"used":1,"pattern":"(Hello)","encoding":"utf-8","entries":[]}
+        """);
+        Assert.Equal(0, Run("putback", "-o", output, json, text).Code);
+        Assert.Contains("\"note\": true", File.ReadAllText(json), StringComparison.Ordinal);
+
+        File.WriteAllText(json, """
+        {"formatVersion":1,"note":[1,true,null],"used":1,"pattern":"(Hello)","encoding":"utf-8","entries":[]}
+        """);
+        Assert.Equal(0, Run("putback", "-o", output, json, text).Code);
+        Assert.Contains("  \"note\": [\n    1,\n    true,\n    null\n  ],\n", File.ReadAllText(json), StringComparison.Ordinal);
+
+        File.WriteAllText(json, """
+        {"formatVersion":1,"note":{"k":"a<b","n":1,"ok":false,"items":[{}]},"used":1,"pattern":"(Hello)","encoding":"utf-8","entries":[]}
+        """);
+        Assert.Equal(0, Run("putback", "-o", output, json, text).Code);
+        raw = File.ReadAllText(json);
+        Assert.Contains("  \"note\": {\n    \"k\": \"a<b\",\n    \"n\": 1,\n    \"ok\": false,\n    \"items\": [\n      {}\n    ]\n  },\n", raw, StringComparison.Ordinal);
+        Assert.DoesNotContain("\\u003c", raw, StringComparison.Ordinal);
     }
 
     [Fact]
