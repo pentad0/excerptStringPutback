@@ -11,10 +11,11 @@ Windows x64 の exe は `bat\win-x64.bat` で作り、`bin\win-x64\excerptString
 ```bat
 bin\win-x64\excerptStringPutback.exe excerpt -encoding utf-8 -pattern "(?m)^(?P<id>[^=]+)=(.*)$" -o script.json script.txt
 bin\win-x64\excerptStringPutback.exe putback -number 1 -o script-out.txt script.json script.txt
+bin\win-x64\excerptStringPutback.exe putback -number 1 -o script.txt script.json script.txt
 bin\win-x64\excerptStringPutback.exe version
 ```
 
-`excerpt` はテキストを変更せず、新しい JSON を作ります。人が編集するのは `names`、`fileVersion`、各項目の `target` です。`putback` はカタログの `pattern` を今のテキストに掛け直し、選んだ番号の変更後文字列を原文の位置へ書き込みます。元のテキストは変更しません。`-json-out` を省くと、入力の JSON を更新します。
+`excerpt` はテキストを変更せず、新しい JSON を作ります。人が編集するのは `names`、`fileVersion`、各項目の `target` です。`putback` はカタログの `pattern` を今のテキストに掛け直し、選んだ番号の変更後文字列を原文の位置へ書き込みます。`-o` と入力のテキストが同じパスのときは、そのファイルを更新します。別のパスのときは、元のテキストは変更しません。`-json-out` を省くと、入力の JSON を更新します。
 
 終了コードは 0 が完了、1 がファイルや符号化や正規表現や JSON のエラー、2 が引数の不足や未知のコマンドです。経過と警告は標準エラーに出ます。エラー、警告、使い方などのメッセージは英語が基本です。OS の表示言語が日本語なら日本語、英語なら英語に切り替わります。それ以外の表示言語では英語のままです。`-language ja` または `-language en` でも切り替えられます。
 

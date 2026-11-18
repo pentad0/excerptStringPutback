@@ -420,15 +420,32 @@ public class ExcerptStringPutbackTests
     }
 
     [Fact]
-    public void Write_refuses_to_replace_the_input_text()
+    public void Write_updates_the_input_text_when_output_is_the_same_path()
     {
         using var dir = Temp();
         var text = Path.Combine(dir, "in.txt");
-        File.WriteAllText(text, "Hello");
         var json = Path.Combine(dir, "cat.json");
+        File.WriteAllText(text, "Hello");
         Assert.Equal(0, Run("excerpt", "-encoding", "utf-8", "-pattern", "(.*)", "-o", json, text).Code);
-        Assert.Equal(1, Run("putback", "-o", text, json, text).Code);
+        var catalog = CatalogJson.Parse(File.ReadAllText(json));
+        catalog.Entries[0].Target[0] = "Bye";
+        File.WriteAllText(json, CatalogJson.ToJson(catalog));
+
+        Assert.Equal(2, Run("putback", json, text).Code);
         Assert.Equal("Hello", File.ReadAllText(text));
+
+        Assert.Equal(0, Run("putback", "-o", text, json, text).Code);
+        Assert.Equal("Bye", File.ReadAllText(text));
+        Assert.Equal("exact", CatalogJson.Parse(File.ReadAllText(json)).Entries[0].Status);
+
+        File.WriteAllText(text, "Hello");
+        Assert.Equal(0, Run("excerpt", "-encoding", "utf-8", "-pattern", "(.*)", "-o", json, text).Code);
+        catalog = CatalogJson.Parse(File.ReadAllText(json));
+        catalog.Entries[0].Target[0] = "Ciao";
+        File.WriteAllText(json, CatalogJson.ToJson(catalog));
+        var same = Path.Combine(dir, ".", "in.txt");
+        Assert.Equal(0, Run("putback", "-o", same, json, text).Code);
+        Assert.Equal("Ciao", File.ReadAllText(text));
     }
 
     [Fact]
