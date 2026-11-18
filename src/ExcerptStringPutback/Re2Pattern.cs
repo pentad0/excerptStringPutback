@@ -6,21 +6,21 @@ namespace ExcerptStringPutback;
 
 internal sealed class Hit
 {
-    public required int CharIndex { get; init; }
-
-    public required int CharLength { get; init; }
-
-    public required string Before { get; init; }
-
-    public required string Source { get; init; }
-
-    public required string After { get; init; }
-
     public required string[] Key { get; init; }
 
-    public required int ByteStart { get; init; }
+    public required string[] Before { get; init; }
 
-    public required int ByteLength { get; init; }
+    public required string[] Source { get; init; }
+
+    public required string[] After { get; init; }
+
+    public required int[] CharIndex { get; init; }
+
+    public required int[] CharLength { get; init; }
+
+    public required int[] ByteStart { get; init; }
+
+    public required int[] ByteLength { get; init; }
 }
 
 internal sealed class Re2Pattern
@@ -50,16 +50,14 @@ internal sealed class Re2Pattern
     private readonly string pattern;
     private readonly StringBuilder output = new();
     private readonly List<string> keys = new();
+    private readonly List<string> sources = new();
     private readonly HashSet<string> seen = new(StringComparer.Ordinal);
     private readonly Stack<Flags> frames = new();
     private readonly Stack<Flags> emittedStack = new();
     private Flags current;
     private Flags emitted;
-    private const string SourceName = "excerptSource";
 
     private int index;
-    private int groupNumber;
-    private string? sourceName;
     private bool haveAtom;
     private bool lastRepeat;
 
@@ -76,7 +74,7 @@ internal sealed class Re2Pattern
         try
         {
             var regex = new Regex(translated, RegexOptions.CultureInvariant, TimeSpan.FromSeconds(30));
-            return new Compiled(regex, parser.keys, parser.sourceName);
+            return new Compiled(regex, parser.keys, parser.sources);
         }
         catch (ArgumentException)
         {
@@ -190,20 +188,7 @@ internal sealed class Re2Pattern
         }
 
         index++;
-        groupNumber++;
-        if (sourceName is null)
-        {
-            sourceName = SourceName;
-            if (!seen.Add(SourceName))
-            {
-                throw new ToolException(Text.Current.DuplicateCaptureName);
-            }
-
-            PushGroup("(?<" + SourceName + ">");
-            return;
-        }
-
-        PushGroup("(");
+        PushGroup("(?:");
     }
 
     private void OpenSpecial()
@@ -214,17 +199,23 @@ internal sealed class Re2Pattern
             throw new ToolException(Invalid);
         }
 
+        if (StartsWithRole("Key"))
+        {
+            ParseRole(source: false);
+            return;
+        }
+
+        if (StartsWithRole("Source"))
+        {
+            ParseRole(source: true);
+            return;
+        }
+
         var c = pattern[index];
         if (c == ':')
         {
             index++;
             PushGroup("(?:");
-            return;
-        }
-
-        if (c == 'P' || c == '<')
-        {
-            ParseNamed();
             return;
         }
 
@@ -238,25 +229,99 @@ internal sealed class Re2Pattern
             throw new ToolException(Invalid);
         }
 
+        if (TrySkipUnusedName())
+        {
+            PushGroup("(?:");
+            return;
+        }
+
         ParseFlags();
     }
 
-    private void ParseNamed()
+    private bool StartsWithRole(string marker)
+    {
+        var end = index + marker.Length;
+        if (end >= pattern.Length || pattern[end] != '<')
+        {
+            return false;
+        }
+
+        for (var i = 0; i < marker.Length; i++)
+        {
+            if (pattern[index + i] != marker[i])
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private bool TrySkipUnusedName()
     {
         if (pattern[index] == 'P')
         {
-            index++;
-            if (index >= pattern.Length || pattern[index] != '<')
+            if (index + 1 >= pattern.Length || pattern[index + 1] != '<')
             {
-                throw new ToolException(Invalid);
+                return false;
             }
+
+            index += 2;
+            SkipName();
+            return true;
         }
-        else if (index + 1 < pattern.Length && pattern[index + 1] is '=' or '!')
+
+        if (pattern[index] == '<')
         {
-            throw new ToolException(Lookaround);
+            if (index + 1 < pattern.Length && pattern[index + 1] is '=' or '!')
+            {
+                throw new ToolException(Lookaround);
+            }
+
+            index++;
+            SkipName();
+            return true;
+        }
+
+        var cursor = index;
+        if (cursor >= pattern.Length || !IsAsciiLetter(pattern[cursor]))
+        {
+            return false;
+        }
+
+        while (cursor < pattern.Length && IsAsciiLetter(pattern[cursor]))
+        {
+            cursor++;
+        }
+
+        if (cursor >= pattern.Length || pattern[cursor] != '<')
+        {
+            return false;
+        }
+
+        index = cursor + 1;
+        SkipName();
+        return true;
+    }
+
+    private void SkipName()
+    {
+        while (index < pattern.Length && pattern[index] != '>')
+        {
+            index++;
+        }
+
+        if (index >= pattern.Length)
+        {
+            throw new ToolException(Invalid);
         }
 
         index++;
+    }
+
+    private void ParseRole(bool source)
+    {
+        index += (source ? "Source" : "Key").Length + 1;
         var start = index;
         while (index < pattern.Length && pattern[index] != '>')
         {
@@ -280,9 +345,21 @@ internal sealed class Re2Pattern
             throw new ToolException(Text.Current.DuplicateCaptureName);
         }
 
-        groupNumber++;
-        keys.Add(name);
+        if (source)
+        {
+            sources.Add(name);
+        }
+        else
+        {
+            keys.Add(name);
+        }
+
         PushGroup("(?<" + name + ">");
+    }
+
+    private static bool IsAsciiLetter(char c)
+    {
+        return c is >= 'A' and <= 'Z' or >= 'a' and <= 'z';
     }
 
     private void ParseFlags()
@@ -1001,17 +1078,18 @@ internal sealed class Re2Pattern
 internal sealed class Compiled
 {
     private readonly Regex regex;
-    private readonly string? sourceName;
 
-    public Compiled(Regex regex, IReadOnlyList<string> keys, string? sourceName)
+    public Compiled(Regex regex, IReadOnlyList<string> keys, IReadOnlyList<string> sources)
     {
         this.regex = regex;
-        this.sourceName = sourceName;
         Keys = keys;
+        Sources = sources;
         KeySet = new HashSet<string>(keys, StringComparer.Ordinal);
     }
 
     public IReadOnlyList<string> Keys { get; }
+
+    public IReadOnlyList<string> Sources { get; }
 
     public HashSet<string> KeySet { get; }
 
@@ -1036,28 +1114,6 @@ internal sealed class Compiled
                 continue;
             }
 
-            int sourceIndex;
-            int sourceLength;
-            if (sourceName is null)
-            {
-                sourceIndex = match.Index;
-                sourceLength = match.Length;
-            }
-            else
-            {
-                var group = match.Groups[sourceName];
-                if (!group.Success || group.Index < match.Index || group.Index + group.Length > match.Index + match.Length)
-                {
-                    sourceIndex = match.Index + match.Length;
-                    sourceLength = 0;
-                }
-                else
-                {
-                    sourceIndex = group.Index;
-                    sourceLength = group.Length;
-                }
-            }
-
             var key = new string[Keys.Count];
             for (var i = 0; i < Keys.Count; i++)
             {
@@ -1065,17 +1121,65 @@ internal sealed class Compiled
                 key[i] = group.Success ? group.Value : "";
             }
 
-            var afterStart = sourceIndex + sourceLength;
+            if (Sources.Count == 0)
+            {
+                hits.Add(new Hit
+                {
+                    Key = key,
+                    Before = [""],
+                    Source = [text.Substring(match.Index, match.Length)],
+                    After = [""],
+                    CharIndex = [match.Index],
+                    CharLength = [match.Length],
+                    ByteStart = [decoded.ByteIndex(match.Index)],
+                    ByteLength = [decoded.ByteLength(match.Index, match.Length)],
+                });
+                continue;
+            }
+
+            var count = Sources.Count;
+            var before = new string[count];
+            var source = new string[count];
+            var after = new string[count];
+            var charIndex = new int[count];
+            var charLength = new int[count];
+            var byteStart = new int[count];
+            var byteLength = new int[count];
+            for (var i = 0; i < count; i++)
+            {
+                var group = match.Groups[Sources[i]];
+                if (!group.Success || group.Index < match.Index || group.Index + group.Length > match.Index + match.Length)
+                {
+                    before[i] = "";
+                    source[i] = "";
+                    after[i] = "";
+                    charIndex[i] = -1;
+                    charLength[i] = 0;
+                    byteStart[i] = -1;
+                    byteLength[i] = 0;
+                    continue;
+                }
+
+                var end = group.Index + group.Length;
+                before[i] = text.Substring(match.Index, group.Index - match.Index);
+                source[i] = text.Substring(group.Index, group.Length);
+                after[i] = text.Substring(end, match.Index + match.Length - end);
+                charIndex[i] = group.Index;
+                charLength[i] = group.Length;
+                byteStart[i] = decoded.ByteIndex(group.Index);
+                byteLength[i] = decoded.ByteLength(group.Index, group.Length);
+            }
+
             hits.Add(new Hit
             {
-                CharIndex = sourceIndex,
-                CharLength = sourceLength,
-                Before = text.Substring(match.Index, sourceIndex - match.Index),
-                Source = text.Substring(sourceIndex, sourceLength),
-                After = text.Substring(afterStart, match.Index + match.Length - afterStart),
                 Key = key,
-                ByteStart = decoded.ByteIndex(sourceIndex),
-                ByteLength = decoded.ByteLength(sourceIndex, sourceLength),
+                Before = before,
+                Source = source,
+                After = after,
+                CharIndex = charIndex,
+                CharLength = charLength,
+                ByteStart = byteStart,
+                ByteLength = byteLength,
             });
         }
 

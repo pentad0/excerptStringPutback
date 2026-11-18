@@ -22,7 +22,8 @@ internal static class Engine
             Bom = decoded.Bom,
             Pattern = pattern,
             Keys = compiled.Keys.ToList(),
-            Names = new List<string> { "changed" },
+            Sources = SourceNames(compiled),
+            ReplacementNames = new List<string> { "changed" },
             Used = 1,
             Methods = methods.ToList(),
         };
@@ -31,13 +32,13 @@ internal static class Engine
             catalog.Entries.Add(new Entry
             {
                 Key = hit.Key.ToList(),
-                Before = hit.Before,
-                Source = hit.Source,
-                After = hit.After,
-                PreviousSource = "",
-                Target = new List<string> { hit.Source },
-                ByteStart = hit.ByteStart,
-                ByteLength = hit.ByteLength,
+                Before = hit.Before.ToList(),
+                Source = hit.Source.ToList(),
+                After = hit.After.ToList(),
+                PreviousSource = hit.Source.Select(_ => "").ToList(),
+                Replacements = [hit.Source.ToList()],
+                ByteStart = hit.ByteStart.ToList(),
+                ByteLength = hit.ByteLength.ToList(),
                 Status = "",
                 MatchedBy = "",
             });
@@ -65,6 +66,11 @@ internal static class Engine
         if (active.Contains("key") && catalog.Keys.Count > 0 && !keyNamesOk)
         {
             stderr.WriteLine(Text.Current.KeyNameMissing);
+        }
+
+        if (!SourceNamesMatch(catalog, compiled))
+        {
+            stderr.WriteLine(Text.Current.SourceNameMissing);
         }
 
         var pairs = new Dictionary<int, (int Span, string Method)>();
@@ -105,14 +111,23 @@ internal static class Engine
         foreach (var (entryIndex, pair) in pairs)
         {
             var entry = catalog.Entries[entryIndex];
-            if (number - 1 >= entry.Target.Count)
+            if (number - 1 >= entry.Replacements.Count)
             {
                 continue;
             }
 
-            var target = entry.Target[number - 1];
+            var row = entry.Replacements[number - 1];
             var hit = hits[pair.Span];
-            replacements.Add(new Replacement(hit.ByteStart, hit.ByteLength, decoded.Encoding.GetBytes(ToNfc(target))));
+            var count = Math.Min(row.Count, hit.ByteStart.Length);
+            for (var slot = 0; slot < count; slot++)
+            {
+                if (hit.ByteStart[slot] < 0)
+                {
+                    continue;
+                }
+
+                replacements.Add(new Replacement(hit.ByteStart[slot], hit.ByteLength[slot], decoded.Encoding.GetBytes(ToNfc(row[slot])), slot));
+            }
             written[entryIndex] = pair;
         }
 
@@ -123,37 +138,38 @@ internal static class Engine
             {
                 entry.Status = "unmatched";
                 entry.MatchedBy = "";
-                entry.PreviousSource = "";
+                entry.PreviousSource = entry.Source.Select(_ => "").ToList();
                 continue;
             }
 
             var hit = hits[pair.Span];
             var oldSource = entry.Source;
-            entry.Before = hit.Before;
-            entry.Source = hit.Source;
-            entry.After = hit.After;
-            entry.ByteStart = hit.ByteStart;
-            entry.ByteLength = hit.ByteLength;
+            entry.Before = hit.Before.ToList();
+            entry.Source = hit.Source.ToList();
+            entry.After = hit.After.ToList();
+            entry.ByteStart = hit.ByteStart.ToList();
+            entry.ByteLength = hit.ByteLength.ToList();
             if (keyNamesOk)
             {
                 entry.Key = KeyInCatalogOrder(catalog, compiled, hit);
             }
 
-            if (string.Equals(hit.Source, oldSource, StringComparison.Ordinal))
+            if (Same(oldSource, hit.Source))
             {
                 entry.Status = "exact";
-                entry.PreviousSource = "";
+                entry.PreviousSource = hit.Source.Select(_ => "").ToList();
             }
             else
             {
                 entry.Status = "revised";
-                entry.PreviousSource = oldSource;
+                entry.PreviousSource = PreviousOf(oldSource, hit.Source);
             }
 
             entry.MatchedBy = pair.Method;
         }
 
         catalog.ToolVersion = ToolInfo.Version;
+        catalog.Sources = SourceNames(compiled);
         catalog.Used = number;
         catalog.Encoding = decoded.EncodingName;
         catalog.Bom = decoded.Bom;
@@ -173,6 +189,65 @@ internal static class Engine
                 pair(entryIndexes[0], spanIndexes[0], "key");
             }
         }
+    }
+
+    private static List<string> SourceNames(Compiled compiled)
+    {
+        return compiled.Sources.Count == 0 ? [""] : compiled.Sources.ToList();
+    }
+
+    private static bool SourceNamesMatch(Catalog catalog, Compiled compiled)
+    {
+        var expected = SourceNames(compiled);
+        if (catalog.Sources.Count == 0)
+        {
+            return true;
+        }
+
+        if (catalog.Sources.Count != expected.Count)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < expected.Count; i++)
+        {
+            if (!string.Equals(catalog.Sources[i], expected[i], StringComparison.Ordinal))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool Same(IReadOnlyList<string> left, IReadOnlyList<string> right)
+    {
+        if (left.Count != right.Count)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < left.Count; i++)
+        {
+            if (!string.Equals(left[i], right[i], StringComparison.Ordinal))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static List<string> PreviousOf(IReadOnlyList<string> oldSource, IReadOnlyList<string> newSource)
+    {
+        var previous = new List<string>(newSource.Count);
+        for (var i = 0; i < newSource.Count; i++)
+        {
+            var old = i < oldSource.Count ? oldSource[i] : "";
+            previous.Add(string.Equals(old, newSource[i], StringComparison.Ordinal) ? "" : old);
+        }
+
+        return previous;
     }
 
     private static List<string> KeyInCatalogOrder(Catalog catalog, Compiled compiled, Hit hit)
@@ -195,18 +270,6 @@ internal static class Engine
         HashSet<int> usedSpans,
         Action<int, int, string> pair)
     {
-        var byStart = new Dictionary<int, List<int>>();
-        for (var i = 0; i < hits.Count; i++)
-        {
-            if (!byStart.TryGetValue(hits[i].ByteStart, out var list))
-            {
-                list = new List<int>();
-                byStart[hits[i].ByteStart] = list;
-            }
-
-            list.Add(i);
-        }
-
         for (var i = 0; i < catalog.Entries.Count; i++)
         {
             if (pairs.ContainsKey(i))
@@ -215,24 +278,57 @@ internal static class Engine
             }
 
             var entry = catalog.Entries[i];
-            if (!byStart.TryGetValue(entry.ByteStart, out var spans) || spans.Count != 1 || usedSpans.Contains(spans[0]))
+            var matched = -1;
+            var count = 0;
+            for (var span = 0; span < hits.Count; span++)
             {
-                continue;
+                if (usedSpans.Contains(span) || !SlotsMatch(decoded, entry, hits[span]))
+                {
+                    continue;
+                }
+
+                matched = span;
+                count++;
             }
 
-            var hit = hits[spans[0]];
-            if (hit.ByteLength != entry.ByteLength || !string.Equals(hit.Source, entry.Source, StringComparison.Ordinal))
+            if (count == 1)
             {
-                continue;
+                pair(i, matched, "offset");
             }
-
-            if (!BytesMatch(decoded, entry.ByteStart, entry.ByteLength, entry.Source))
-            {
-                continue;
-            }
-
-            pair(i, spans[0], "offset");
         }
+    }
+
+    private static bool SlotsMatch(DecodedText decoded, Entry entry, Hit hit)
+    {
+        if (entry.ByteStart.Count != hit.ByteStart.Length || entry.ByteLength.Count != hit.ByteLength.Length || entry.Source.Count != hit.Source.Length)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < hit.ByteStart.Length; i++)
+        {
+            if (entry.ByteStart[i] < 0 || hit.ByteStart[i] < 0)
+            {
+                if (entry.ByteStart[i] >= 0 || hit.ByteStart[i] >= 0)
+                {
+                    return false;
+                }
+
+                continue;
+            }
+
+            if (entry.ByteStart[i] != hit.ByteStart[i] || entry.ByteLength[i] != hit.ByteLength[i] || !string.Equals(entry.Source[i], hit.Source[i], StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            if (!BytesMatch(decoded, entry.ByteStart[i], entry.ByteLength[i], entry.Source[i]))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private static bool BytesMatch(DecodedText decoded, int start, int length, string source)
@@ -259,7 +355,7 @@ internal static class Engine
         HashSet<int> usedSpans,
         Action<int, int, string> pair)
     {
-        var entries = GroupFree(catalog.Entries.Select((entry, index) => (index, entry.Source)), pairs.ContainsKey);
+        var entries = GroupFree(catalog.Entries.Select((entry, index) => (index, entry.Source.ToArray())), pairs.ContainsKey);
         var spans = GroupFree(hits.Select((hit, index) => (index, hit.Source)), usedSpans.Contains);
         foreach (var (source, entryIndexes) in entries)
         {
@@ -280,11 +376,11 @@ internal static class Engine
         var entries = GroupFree(
             catalog.Entries.Select((entry, index) => (index, ContextOf(entry.Before, entry.Source, entry.After))),
             pairs.ContainsKey,
-            static context => context.Before.Length > 0 || context.After.Length > 0);
+            static context => HasContext(context));
         var spans = GroupFree(
             hits.Select((hit, index) => (index, ContextOf(hit.Before, hit.Source, hit.After))),
             usedSpans.Contains,
-            static context => context.Before.Length > 0 || context.After.Length > 0);
+            static context => HasContext(context));
         foreach (var (context, entryIndexes) in entries)
         {
             if (entryIndexes.Count == 1 && spans.TryGetValue(context, out var spanIndexes) && spanIndexes.Count == 1)
@@ -340,7 +436,7 @@ internal static class Engine
             if (active.Contains("align"))
             {
                 var lcs = Lcs(
-                    olds.Select(index => catalog.Entries[index].Source).ToList(),
+                    olds.Select(index => catalog.Entries[index].Source.ToArray()).ToList(),
                     news.Select(index => hits[index].Source).ToList());
                 foreach (var (oldIndex, newIndex) in lcs)
                 {
@@ -393,7 +489,7 @@ internal static class Engine
         }
     }
 
-    private static List<(int Old, int New)> Lcs(IReadOnlyList<string> oldSources, IReadOnlyList<string> newSources)
+    private static List<(int Old, int New)> Lcs(IReadOnlyList<string[]> oldSources, IReadOnlyList<string[]> newSources)
     {
         var rows = oldSources.Count;
         var columns = newSources.Count;
@@ -402,7 +498,7 @@ internal static class Engine
         {
             for (var column = columns - 1; column >= 0; column--)
             {
-                scores[row, column] = string.Equals(oldSources[row], newSources[column], StringComparison.Ordinal)
+                scores[row, column] = Same(oldSources[row], newSources[column])
                     ? scores[row + 1, column + 1] + 1
                     : Math.Max(scores[row + 1, column], scores[row, column + 1]);
             }
@@ -413,7 +509,7 @@ internal static class Engine
         var y = 0;
         while (x < rows && y < columns)
         {
-            if (string.Equals(oldSources[x], newSources[y], StringComparison.Ordinal))
+            if (Same(oldSources[x], newSources[y]))
             {
                 pairs.Add((x, y));
                 x++;
@@ -449,9 +545,9 @@ internal static class Engine
         return groups;
     }
 
-    private static Dictionary<string, List<int>> GroupFree(IEnumerable<(int Index, string Value)> items, Func<int, bool> used)
+    private static Dictionary<string[], List<int>> GroupFree(IEnumerable<(int Index, string[] Value)> items, Func<int, bool> used)
     {
-        var groups = new Dictionary<string, List<int>>(StringComparer.Ordinal);
+        var groups = new Dictionary<string[], List<int>>(StringArrayComparer.Instance);
         foreach (var (index, value) in items)
         {
             if (used(index))
@@ -476,7 +572,7 @@ internal static class Engine
         Func<int, bool> used,
         Func<Context, bool> include)
     {
-        var groups = new Dictionary<Context, List<int>>();
+        var groups = new Dictionary<Context, List<int>>(ContextComparer.Instance);
         foreach (var (index, value) in items)
         {
             if (used(index) || !include(value))
@@ -496,17 +592,39 @@ internal static class Engine
         return groups;
     }
 
-    private static Context ContextOf(string before, string source, string after)
+    private static Context ContextOf(IReadOnlyList<string> before, IReadOnlyList<string> source, IReadOnlyList<string> after)
     {
-        return new Context(before, source, after);
+        return new Context(before.ToArray(), source.ToArray(), after.ToArray());
+    }
+
+    private static bool HasContext(Context context)
+    {
+        return context.Before.Any(text => text.Length > 0) || context.After.Any(text => text.Length > 0);
     }
 
     private static void EnsureNoOverlap(IReadOnlyList<Hit> hits)
     {
-        for (var i = 1; i < hits.Count; i++)
+        var spans = new List<(int Index, int Length)>();
+        foreach (var hit in hits)
         {
-            var previous = hits[i - 1];
-            if (previous.CharLength > 0 && hits[i].CharIndex < previous.CharIndex + previous.CharLength)
+            for (var i = 0; i < hit.CharIndex.Length; i++)
+            {
+                if (hit.CharIndex[i] >= 0)
+                {
+                    spans.Add((hit.CharIndex[i], hit.CharLength[i]));
+                }
+            }
+        }
+
+        spans.Sort(static (left, right) =>
+        {
+            var byIndex = left.Index.CompareTo(right.Index);
+            return byIndex != 0 ? byIndex : left.Length.CompareTo(right.Length);
+        });
+        for (var i = 1; i < spans.Count; i++)
+        {
+            var previous = spans[i - 1];
+            if (spans[i].Index < previous.Index + previous.Length && previous.Index < spans[i].Index + spans[i].Length)
             {
                 throw new ToolException(Text.Current.OverlappingSource);
             }
@@ -520,7 +638,17 @@ internal static class Engine
             return input;
         }
 
-        replacements.Sort((left, right) => left.Start.CompareTo(right.Start));
+        replacements.Sort((left, right) =>
+        {
+            var byStart = left.Start.CompareTo(right.Start);
+            if (byStart != 0)
+            {
+                return byStart;
+            }
+
+            var byLength = left.Length.CompareTo(right.Length);
+            return byLength != 0 ? byLength : left.Order.CompareTo(right.Order);
+        });
         using var stream = new MemoryStream(input.Length);
         var cursor = 0;
         foreach (var replacement in replacements)
@@ -556,9 +684,28 @@ internal static class Engine
         return path.Replace('\\', '/');
     }
 
-    private readonly record struct Context(string Before, string Source, string After);
+    private readonly record struct Context(string[] Before, string[] Source, string[] After);
 
-    private readonly record struct Replacement(int Start, int Length, byte[] Data);
+    private sealed class ContextComparer : IEqualityComparer<Context>
+    {
+        public static readonly ContextComparer Instance = new();
+
+        public bool Equals(Context x, Context y)
+        {
+            return Same(x.Before, y.Before) && Same(x.Source, y.Source) && Same(x.After, y.After);
+        }
+
+        public int GetHashCode(Context obj)
+        {
+            var hash = new HashCode();
+            hash.Add(StringArrayComparer.Instance.GetHashCode(obj.Before));
+            hash.Add(StringArrayComparer.Instance.GetHashCode(obj.Source));
+            hash.Add(StringArrayComparer.Instance.GetHashCode(obj.After));
+            return hash.ToHashCode();
+        }
+    }
+
+    private readonly record struct Replacement(int Start, int Length, byte[] Data, int Order);
 
     private sealed class StringArrayComparer : IEqualityComparer<string[]>
     {
