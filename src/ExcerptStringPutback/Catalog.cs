@@ -8,19 +8,19 @@ internal sealed class Entry
 {
     public List<string> Key { get; set; } = new();
 
-    public string Before { get; set; } = "";
+    public List<string> Before { get; set; } = new();
 
-    public string Source { get; set; } = "";
+    public List<string> Source { get; set; } = new();
 
-    public string After { get; set; } = "";
+    public List<string> After { get; set; } = new();
 
-    public string PreviousSource { get; set; } = "";
+    public List<string> PreviousSource { get; set; } = new();
 
-    public List<string> Target { get; set; } = new();
+    public List<List<string>> Replacements { get; set; } = new();
 
-    public int ByteStart { get; set; }
+    public List<int> ByteStart { get; set; } = new();
 
-    public int ByteLength { get; set; }
+    public List<int> ByteLength { get; set; } = new();
 
     public string Status { get; set; } = "";
 
@@ -49,7 +49,9 @@ internal sealed class Catalog
 
     public List<string> Keys { get; set; } = new();
 
-    public List<string> Names { get; set; } = new();
+    public List<string> Sources { get; set; } = new();
+
+    public List<string> ReplacementNames { get; set; } = new();
 
     public int Used { get; set; }
 
@@ -67,9 +69,9 @@ internal static class ToolInfo
 {
     public const string ProgramName = "excerptStringPutback";
 
-    public const string Version = "1.0.0";
+    public const string Version = "1.1.0";
 
-    public const int FormatVersion = 1;
+    public const int FormatVersion = 2;
 
     public static readonly string[] Methods = ["key", "offset", "exact", "context", "align", "revised"];
 
@@ -187,7 +189,8 @@ internal static class CatalogJson
                 Bom = OptionalBool(root, "bom"),
                 Pattern = OptionalString(root, "pattern"),
                 Keys = OptionalStrings(root, "keys"),
-                Names = OptionalStrings(root, "names"),
+                Sources = OptionalStrings(root, "sources"),
+                ReplacementNames = OptionalStrings(root, "replacementNames"),
                 Used = OptionalInt(root, "used"),
                 Methods = root.TryGetProperty("methods", out var methods)
                     ? ToolInfo.Order(RequiredStrings(methods, "methods"))
@@ -222,7 +225,8 @@ internal static class CatalogJson
         BoolProp(builder, 1, "bom", catalog.Bom);
         StringProp(builder, 1, "pattern", catalog.Pattern);
         StringsProp(builder, 1, "keys", catalog.Keys);
-        StringsProp(builder, 1, "names", catalog.Names);
+        StringsProp(builder, 1, "sources", catalog.Sources);
+        StringsProp(builder, 1, "replacementNames", catalog.ReplacementNames);
         IntProp(builder, 1, "used", catalog.Used);
         StringsProp(builder, 1, "methods", catalog.Methods);
         builder.Append("  \"entries\": ");
@@ -255,13 +259,13 @@ internal static class CatalogJson
     {
         builder.Append("    {\n");
         StringsProp(builder, 3, "key", entry.Key);
-        StringProp(builder, 3, "before", entry.Before);
-        StringProp(builder, 3, "source", entry.Source);
-        StringProp(builder, 3, "after", entry.After);
-        StringProp(builder, 3, "previousSource", entry.PreviousSource);
-        StringsProp(builder, 3, "target", entry.Target);
-        IntProp(builder, 3, "byteStart", entry.ByteStart);
-        IntProp(builder, 3, "byteLength", entry.ByteLength);
+        StringsProp(builder, 3, "before", entry.Before);
+        StringsProp(builder, 3, "source", entry.Source);
+        StringsProp(builder, 3, "after", entry.After);
+        StringsProp(builder, 3, "previousSource", entry.PreviousSource);
+        RowsProp(builder, 3, "replacements", entry.Replacements);
+        IntsProp(builder, 3, "byteStart", entry.ByteStart);
+        IntsProp(builder, 3, "byteLength", entry.ByteLength);
         StringProp(builder, 3, "status", entry.Status);
         StringProp(builder, 3, "matchedBy", entry.MatchedBy, last: true);
         builder.Append("    }");
@@ -285,13 +289,13 @@ internal static class CatalogJson
             list.Add(new Entry
             {
                 Key = OptionalStrings(item, "key"),
-                Before = OptionalString(item, "before"),
-                Source = OptionalString(item, "source"),
-                After = OptionalString(item, "after"),
-                PreviousSource = OptionalString(item, "previousSource"),
-                Target = OptionalStrings(item, "target"),
-                ByteStart = OptionalInt(item, "byteStart"),
-                ByteLength = OptionalInt(item, "byteLength"),
+                Before = OptionalStrings(item, "before"),
+                Source = OptionalStrings(item, "source"),
+                After = OptionalStrings(item, "after"),
+                PreviousSource = OptionalStrings(item, "previousSource"),
+                Replacements = OptionalRows(item, "replacements"),
+                ByteStart = OptionalInts(item, "byteStart", -1),
+                ByteLength = OptionalInts(item, "byteLength", 0),
                 Status = OptionalString(item, "status"),
                 MatchedBy = OptionalString(item, "matchedBy"),
             });
@@ -353,6 +357,53 @@ internal static class CatalogJson
         }
 
         return value;
+    }
+
+    private static List<List<string>> OptionalRows(JsonElement root, string name)
+    {
+        if (!root.TryGetProperty(name, out var element) || element.ValueKind == JsonValueKind.Null)
+        {
+            return new List<List<string>>();
+        }
+
+        if (element.ValueKind != JsonValueKind.Array)
+        {
+            throw new ToolException(Text.Current.Format(Text.Current.MustBeArray, name));
+        }
+
+        var rows = new List<List<string>>();
+        foreach (var item in element.EnumerateArray())
+        {
+            rows.Add(RequiredStrings(item, name));
+        }
+
+        return rows;
+    }
+
+    private static List<int> OptionalInts(JsonElement root, string name, int minimum)
+    {
+        if (!root.TryGetProperty(name, out var element) || element.ValueKind == JsonValueKind.Null)
+        {
+            return new List<int>();
+        }
+
+        if (element.ValueKind != JsonValueKind.Array)
+        {
+            throw new ToolException(Text.Current.Format(Text.Current.MustBeArray, name));
+        }
+
+        var list = new List<int>();
+        foreach (var item in element.EnumerateArray())
+        {
+            if (item.ValueKind != JsonValueKind.Number || !item.TryGetInt32(out var value) || value < minimum)
+            {
+                throw new ToolException(Text.Current.JsonShape);
+            }
+
+            list.Add(value);
+        }
+
+        return list;
     }
 
     private static List<string> OptionalStrings(JsonElement root, string name)
@@ -503,10 +554,73 @@ internal static class CatalogJson
     private static void StringsProp(StringBuilder builder, int indent, string name, IReadOnlyList<string> values, bool last = false)
     {
         Prefix(builder, indent, name);
+        WriteStrings(builder, indent, values);
+        End(builder, last);
+    }
+
+    private static void RowsProp(StringBuilder builder, int indent, string name, IReadOnlyList<List<string>> rows, bool last = false)
+    {
+        Prefix(builder, indent, name);
+        if (rows.Count == 0)
+        {
+            builder.Append("[]");
+            End(builder, last);
+            return;
+        }
+
+        builder.Append("[\n");
+        var child = indent + 1;
+        for (var i = 0; i < rows.Count; i++)
+        {
+            builder.Append(' ', child * 2);
+            WriteStrings(builder, child, rows[i]);
+            if (i + 1 < rows.Count)
+            {
+                builder.Append(',');
+            }
+
+            builder.Append('\n');
+        }
+
+        builder.Append(' ', indent * 2);
+        builder.Append(']');
+        End(builder, last);
+    }
+
+    private static void IntsProp(StringBuilder builder, int indent, string name, IReadOnlyList<int> values, bool last = false)
+    {
+        Prefix(builder, indent, name);
         if (values.Count == 0)
         {
             builder.Append("[]");
             End(builder, last);
+            return;
+        }
+
+        builder.Append("[\n");
+        var child = indent + 1;
+        for (var i = 0; i < values.Count; i++)
+        {
+            builder.Append(' ', child * 2);
+            builder.Append(values[i].ToString(CultureInfo.InvariantCulture));
+            if (i + 1 < values.Count)
+            {
+                builder.Append(',');
+            }
+
+            builder.Append('\n');
+        }
+
+        builder.Append(' ', indent * 2);
+        builder.Append(']');
+        End(builder, last);
+    }
+
+    private static void WriteStrings(StringBuilder builder, int indent, IReadOnlyList<string> values)
+    {
+        if (values.Count == 0)
+        {
+            builder.Append("[]");
             return;
         }
 
@@ -526,7 +640,6 @@ internal static class CatalogJson
 
         builder.Append(' ', indent * 2);
         builder.Append(']');
-        End(builder, last);
     }
 
     private static void Prefix(StringBuilder builder, int indent, string name)
