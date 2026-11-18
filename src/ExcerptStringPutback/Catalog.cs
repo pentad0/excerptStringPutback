@@ -37,6 +37,8 @@ internal sealed class Catalog
 
     public string FileVersion { get; set; } = "";
 
+    public NoteValue Note { get; set; } = new();
+
     public string File { get; set; } = "";
 
     public string Encoding { get; set; } = "";
@@ -54,6 +56,13 @@ internal sealed class Catalog
     public List<string> Methods { get; set; } = new();
 
     public List<Entry> Entries { get; set; } = new();
+}
+
+internal sealed class NoteValue
+{
+    public string Text { get; set; } = "";
+
+    public List<string>? Items { get; set; }
 }
 
 internal static class ToolInfo
@@ -174,6 +183,7 @@ internal static class CatalogJson
                 FormatVersion = version,
                 ToolVersion = OptionalString(root, "toolVersion"),
                 FileVersion = OptionalString(root, "fileVersion"),
+                Note = OptionalNote(root, "note"),
                 File = OptionalString(root, "file"),
                 Encoding = OptionalString(root, "encoding"),
                 Bom = OptionalBool(root, "bom"),
@@ -208,6 +218,7 @@ internal static class CatalogJson
         IntProp(builder, 1, "formatVersion", catalog.FormatVersion);
         StringProp(builder, 1, "toolVersion", catalog.ToolVersion);
         StringProp(builder, 1, "fileVersion", catalog.FileVersion);
+        NoteProp(builder, 1, "note", catalog.Note);
         StringProp(builder, 1, "file", catalog.File);
         StringProp(builder, 1, "encoding", catalog.Encoding);
         BoolProp(builder, 1, "bom", catalog.Bom);
@@ -291,6 +302,26 @@ internal static class CatalogJson
         return list;
     }
 
+    private static NoteValue OptionalNote(JsonElement root, string name)
+    {
+        if (!root.TryGetProperty(name, out var element) || element.ValueKind == JsonValueKind.Null)
+        {
+            return new NoteValue();
+        }
+
+        if (element.ValueKind == JsonValueKind.String)
+        {
+            return new NoteValue { Text = element.GetString() ?? "" };
+        }
+
+        if (element.ValueKind == JsonValueKind.Array)
+        {
+            return new NoteValue { Items = RequiredStrings(element, name) };
+        }
+
+        throw new ToolException(Text.Current.Format(Text.Current.MustBeStringOrArray, name));
+    }
+
     private static string OptionalString(JsonElement root, string name)
     {
         if (!root.TryGetProperty(name, out var element) || element.ValueKind == JsonValueKind.Null)
@@ -365,6 +396,17 @@ internal static class CatalogJson
         }
 
         return list;
+    }
+
+    private static void NoteProp(StringBuilder builder, int indent, string name, NoteValue note, bool last = false)
+    {
+        if (note.Items is not null)
+        {
+            StringsProp(builder, indent, name, note.Items, last);
+            return;
+        }
+
+        StringProp(builder, indent, name, note.Text, last);
     }
 
     private static void StringProp(StringBuilder builder, int indent, string name, string value, bool last = false)

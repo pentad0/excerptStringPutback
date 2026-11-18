@@ -86,11 +86,11 @@ pattern: (?m)^(?P<chapter>\d+)\t(?P<id>\d+)\t(.*)
 
 未知のフィールドは、ツールが書き出すときに残しません。JSON に足しても、`putback` のあとには消えます。
 
-フィールドは次の2段だけです。`program`、`formatVersion`、`toolVersion`、`fileVersion`、`pattern`、`names`、`keys`、`used`、`methods` は先頭に1つずつです。`program` は JSON の最初のフィールドです。項目の中には繰り返しません。
+フィールドは次の2段だけです。`program`、`formatVersion`、`toolVersion`、`fileVersion`、`note`、`pattern`、`names`、`keys`、`used`、`methods` は先頭に1つずつです。`program` は JSON の最初のフィールドです。項目の中には繰り返しません。
 
 ### 3.0 フォーマットバージョン
 
-現在の `formatVersion` は **1** です。この形式を書き出すツールのバージョンは **1.0.0** です。`excerptStringPutback version` でも確認できます。書き出した JSON の `program` には、そのファイルを作成したプログラムの名前が入ります。このツールが作成したときは `excerptStringPutback` です。`toolVersion` には、そのファイルを最後に書いたツールのバージョンが入ります。`fileVersion` は、利用者がこの JSON ファイル自身の版を自由に書く目印です。ツールは `program` も `toolVersion` も `fileVersion` も、最新かどうかや書き戻しの判定に使いません。これらの項目を足したときも `formatVersion` は 1 のままです。`program` や `toolVersion` や `fileVersion` が無いファイルも形式 1 として読みます。
+現在の `formatVersion` は **1** です。この形式を書き出すツールのバージョンは **1.0.0** です。`excerptStringPutback version` でも確認できます。書き出した JSON の `program` には、そのファイルを作成したプログラムの名前が入ります。このツールが作成したときは `excerptStringPutback` です。`toolVersion` には、そのファイルを最後に書いたツールのバージョンが入ります。`fileVersion` は、利用者がこの JSON ファイル自身の版を自由に書く目印です。`note` は、利用者が文字列でも文字列の配列でも自由に書く欄です。ツールは `program` も `toolVersion` も `fileVersion` も `note` も、最新かどうかや書き戻しの判定に使いません。これらの項目を足したときも `formatVersion` は 1 のままです。`program` や `toolVersion` や `fileVersion` や `note` が無いファイルも形式 1 として読みます。
 
 | formatVersion | ツール | 内容 |
 | --- | --- | --- |
@@ -106,6 +106,7 @@ JSON の形や、フィールドの意味、配列の並び、番号の数え方
   "formatVersion": 1,
   "toolVersion": "1.0.0",
   "fileVersion": "3",
+  "note": "",
   "file": "data/script.txt",
   "encoding": "utf-8",
   "bom": false,
@@ -172,6 +173,7 @@ JSON の形や、フィールドの意味、配列の並び、番号の数え方
 | `formatVersion` | JSON の形式番号。現在は 1。形式を変えたら 1 増やす |
 | `toolVersion` | この JSON を最後に書いたツールのバージョン。抽出でも書き戻しでも、実行中のツールの番号で上書きする。形式の判定には使わない |
 | `fileVersion` | この JSON ファイルの版。利用者が自由に書く文字列で、どのファイルが新しいかの目印にする。抽出直後は `""`。書き戻しでは変えない。中身の形式は問わない |
+| `note` | 利用者が自由に書く欄。文字列でも、文字列の配列でもよい。抽出直後は `""`。このツールは書き戻しで中身を読まない。テキストへは書き込まない。入力に書いてあった文字列または配列は、書き戻した JSON に残す。無ければ空文字を書く。数、真偽値、オブジェクトはエラー |
 | `file` | 直近に読んだテキストファイルのパス。区切りは `/` |
 | `encoding` | `utf-8`、`utf-16le`、`utf-16be` のいずれか |
 | `bom` | そのファイルに BOM があったか |
@@ -225,7 +227,7 @@ JSON の形や、フィールドの意味、配列の並び、番号の数え方
 2. `pattern` をコンパイルし、名前と原文のキャプチャを決める。
 3. ファイルの前から順に、重ならない一致を取る。
 4. 各一致から `key`、`before`、`source`、`after`、`byteStart`、`byteLength` を作る。
-5. `formatVersion` は 1、`program` は `excerptStringPutback`、`toolVersion` は実行中のツールのバージョン、`fileVersion` は空文字、各項目の `target` は `source` と同じ文字列を1つ入れた配列、`names` は `["changed"]`、`previousSource` と `status` と `matchedBy` は空文字、`used` は 1 にする。
+5. `formatVersion` は 1、`program` は `excerptStringPutback`、`toolVersion` は実行中のツールのバージョン、`fileVersion` と `note` は空文字、各項目の `target` は `source` と同じ文字列を1つ入れた配列、`names` は `["changed"]`、`previousSource` と `status` と `matchedBy` は空文字、`used` は 1 にする。
 6. `methods` は、コマンドで無効にしていない方式を実行順で入れる。
 
 `changed` は、1番の変更後文字列の表示名です。中身は原文の複製で、人が書き換えてから書き戻します。`names` は対応づけには使いません。原文が空の項目は、変更後文字列も空になります。空の変更後文字列は書き戻しません。
@@ -294,7 +296,7 @@ JSON の形や、フィールドの意味、配列の並び、番号の数え方
 
 `byteStart` は出力ファイルではなく、その回に読んだ入力ファイル上の位置です。書き込んだ変更後文字列のバイト長が原文と異なる出力ファイルに、次の回の `offset` がそのまま当たるとは限りません。当たらないときは後ろの方式が探します。
 
-`matchedBy` と `status` は、書き戻しのたびに全項目を書き直します。JSON の変更後文字列を手で直しても、次に書き戻すまでは `matchedBy` は変わりません。書き戻した JSON の `toolVersion` は、その回を実行したツールのバージョンに更新します。`program` と `fileVersion` は、入力の JSON に書いてあった文字列のまま残します。
+`matchedBy` と `status` は、書き戻しのたびに全項目を書き直します。JSON の変更後文字列を手で直しても、次に書き戻すまでは `matchedBy` は変わりません。書き戻した JSON の `toolVersion` は、その回を実行したツールのバージョンに更新します。`program` と `fileVersion` は、入力の JSON に書いてあった文字列のまま残します。`note` は書き戻しで読まず、入力に書いてあった文字列または文字列の配列をそのまま残します。無ければ空文字を書きます。
 
 書き戻す項目が0件でも、符号化し直したテキストファイルを出力します。変更が無ければ、入力と同じバイト列になります。
 
@@ -318,7 +320,7 @@ excerptStringPutback putback [-language en|ja] -number <番号> -o <出力ファ
 
 ## 7. 人が変えてよいフィールド
 
-人が変えてよいのは、原則として `names`、`fileVersion`、各項目の `target` です。`fileVersion` は、その JSON がどの版かを人が見分けるための文字列です。`source`、`key`、`before`、`after`、バイト位置、`pattern`、符号化は、書き戻しの対応づけに使います。
+人が変えてよいのは、原則として `names`、`fileVersion`、`note`、各項目の `target` です。`fileVersion` は、その JSON がどの版かを人が見分けるための文字列です。`note` は、文字列でも文字列の配列でも書けます。このツールは `note` を書き戻しで読まず、テキストへも書き込みません。`source`、`key`、`before`、`after`、バイト位置、`pattern`、符号化は、書き戻しの対応づけに使います。
 
 JSON は UTF-8（BOM なし）で保存します。
 
