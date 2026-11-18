@@ -111,11 +111,6 @@ internal static class Engine
             }
 
             var target = entry.Target[number - 1];
-            if (target.Length == 0)
-            {
-                continue;
-            }
-
             var hit = hits[pair.Span];
             replacements.Add(new Replacement(hit.ByteStart, hit.ByteLength, decoded.Encoding.GetBytes(ToNfc(target))));
             written[entryIndex] = pair;
