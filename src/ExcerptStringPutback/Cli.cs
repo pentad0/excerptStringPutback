@@ -110,11 +110,6 @@ public static class Cli
         var textPath = positionals[1];
         var textOut = flags["-o"];
         var jsonOut = flags.TryGetValue("-json-out", out var jsonPath) ? jsonPath : catalogPath;
-        if (IsSamePath(textOut, textPath))
-        {
-            throw new ToolException(text.KeepOriginalText);
-        }
-
         if (IsSamePath(jsonOut, textOut) || IsSamePath(jsonOut, textPath))
         {
             throw new ToolException(text.JsonPathIsText);

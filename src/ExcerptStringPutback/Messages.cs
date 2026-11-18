@@ -37,7 +37,6 @@ internal sealed class Messages
         Extracted = "Extracted {0} entries.",
         Wrote = "Wrote {0} entries.",
         WroteWithUnmatched = "Wrote {0} entries. {1} entries were unmatched.",
-        KeepOriginalText = "The original text file is left unchanged. Choose a different output path.",
         JsonPathIsText = "The JSON output path is the same as a text file.",
         NumberRange = "-number must be an integer of 1 or more.",
         UsedZero = "-number is missing and used is 0.",
@@ -95,7 +94,6 @@ internal sealed class Messages
         Extracted = "{0} 件を書き出しました。",
         Wrote = "{0} 件を書き戻しました。",
         WroteWithUnmatched = "{0} 件を書き戻しました。対応しなかった項目は {1} 件です。",
-        KeepOriginalText = "元のテキストファイルは変更しません。別の出力先を指定してください。",
         JsonPathIsText = "JSON の出力先がテキストファイルと同じです。",
         NumberRange = "-number は 1 以上の整数です。",
         UsedZero = "-number が無く、used が 0 です。",
@@ -153,8 +151,6 @@ internal sealed class Messages
     public required string Wrote { get; init; }
 
     public required string WroteWithUnmatched { get; init; }
-
-    public required string KeepOriginalText { get; init; }
 
     public required string JsonPathIsText { get; init; }
 
