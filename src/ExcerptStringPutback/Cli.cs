@@ -119,14 +119,10 @@ public static class Cli
         int number;
         if (flags.TryGetValue("-number", out var numberText))
         {
-            if (!int.TryParse(numberText, NumberStyles.None, CultureInfo.InvariantCulture, out number) || number < 1)
+            if (!int.TryParse(numberText, NumberStyles.None, CultureInfo.InvariantCulture, out number) || number < 0)
             {
                 throw new ToolException(text.NumberRange);
             }
-        }
-        else if (catalog.Used < 1)
-        {
-            throw new ToolException(text.UsedZero);
         }
         else
         {

@@ -36,7 +36,7 @@ public class ExcerptStringPutbackTests
         Assert.Equal("", entry.MatchedBy);
         Assert.Equal(new[] { "" }, entry.PreviousSource);
         Assert.Equal(new[] { "changed" }, catalog.ReplacementNames);
-        Assert.Equal(1, catalog.Used);
+        Assert.Equal(0, catalog.Used);
         Assert.Equal("", catalog.FileVersion);
         Assert.Equal("\"\"", catalog.Note.Json);
         Assert.Equal("excerptStringPutback", catalog.Program);
@@ -393,10 +393,10 @@ public class ExcerptStringPutbackTests
         Assert.Equal(new[] { "Hello" }, cleared.Catalog.Entries[0].Source);
 
         catalog.Entries[0].Replacements = new List<List<string>> { new() { "one" }, new() { "two" } };
-        catalog.Used = 2;
+        catalog.Used = 1;
         var second = Apply(catalog, "Hello");
         Assert.Equal("two", Encoding.UTF8.GetString(second.Bytes));
-        Assert.Equal(2, second.Catalog.Used);
+        Assert.Equal(1, second.Catalog.Used);
 
         catalog.Entries[0].Replacements = new List<List<string>> { new() { "one" } };
         var missing = Apply(catalog, "Hello");
@@ -452,7 +452,7 @@ public class ExcerptStringPutbackTests
           "keys": [],
           "sources": [""],
           "replacementNames": ["changed"],
-          "used": 1,
+          "used": 0,
           "methods": ["revised", "exact"],
           "entries": [
             {
@@ -500,7 +500,7 @@ public class ExcerptStringPutbackTests
           "note": "メモ",
           "pattern": "(Hello)",
           "encoding": "utf-8",
-          "used": 1,
+          "used": 0,
           "entries": [
             {
               "source": ["Hello"],
@@ -526,7 +526,7 @@ public class ExcerptStringPutbackTests
           "note": ["tag", "a<b"],
           "pattern": "(Hello)",
           "encoding": "utf-8",
-          "used": 1,
+          "used": 0,
           "entries": [
             {
               "source": ["Hello"],
@@ -598,9 +598,9 @@ public class ExcerptStringPutbackTests
         Assert.Equal(1, Run("putback", "-o", output, json, text).Code);
 
         File.WriteAllText(json, """
-        {"formatVersion":2,"pattern":"(.*)","encoding":"utf-8","used":0,"entries":[]}
+        {"formatVersion":2,"pattern":"(.*)","encoding":"utf-8","used":-1,"entries":[]}
         """);
-        Assert.Contains("used", Run("putback", "-o", output, json, text).Stderr);
+        Assert.Equal(1, Run("putback", "-o", output, json, text).Code);
         Assert.False(File.Exists(output));
 
         Assert.Equal(2, Run().Code);
@@ -608,6 +608,58 @@ public class ExcerptStringPutbackTests
         Assert.Equal(0, Run("version").Code);
         Assert.Equal("1.1.0\n", Run("version").Stdout);
         Assert.Equal("", Run("excerpt", "-encoding", "utf-8", "-pattern", "(.*)", "-o", json, text).Stdout);
+    }
+
+    [Fact]
+    public void Number_is_a_zero_based_index_and_negatives_are_rejected()
+    {
+        using var dir = Temp();
+        var text = Path.Combine(dir, "in.txt");
+        File.WriteAllText(text, "Hello");
+        var json = Path.Combine(dir, "cat.json");
+        var output = Path.Combine(dir, "out.txt");
+        File.WriteAllText(json, """
+        {
+          "formatVersion": 2,
+          "pattern": "(Hello)",
+          "encoding": "utf-8",
+          "replacementNames": ["first", "second"],
+          "used": 0,
+          "entries": [
+            {
+              "source": ["Hello"],
+              "replacements": [["ゼロ"], ["イチ"]],
+              "byteStart": [0],
+              "byteLength": [5]
+            }
+          ]
+        }
+        """);
+
+        Assert.Equal(0, Run("putback", "-o", output, json, text).Code);
+        Assert.Equal("ゼロ", File.ReadAllText(output));
+        Assert.Equal("Hello", File.ReadAllText(text));
+        Assert.Equal(0, CatalogJson.Parse(File.ReadAllText(json)).Used);
+
+        File.WriteAllText(text, "Hello");
+        Assert.Equal(0, Run("putback", "-number", "0", "-o", output, json, text).Code);
+        Assert.Equal("ゼロ", File.ReadAllText(output));
+
+        File.WriteAllText(text, "Hello");
+        Assert.Equal(0, Run("putback", "-number", "1", "-o", output, json, text).Code);
+        Assert.Equal("イチ", File.ReadAllText(output));
+        Assert.Equal(1, CatalogJson.Parse(File.ReadAllText(json)).Used);
+
+        File.WriteAllText(text, "Hello");
+        var negative = Run("putback", "-number", "-1", "-o", output, json, text);
+        Assert.Equal(1, negative.Code);
+        Assert.Contains("0 以上", negative.Stderr);
+        Assert.Equal("Hello", File.ReadAllText(text));
+        Assert.Equal("イチ", File.ReadAllText(output));
+
+        var negativeEn = Run("putback", "-language", "en", "-number", "-1", "-o", output, json, text);
+        Assert.Equal(1, negativeEn.Code);
+        Assert.Contains("0 or more", negativeEn.Stderr);
     }
 
     [Fact]
