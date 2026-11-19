@@ -117,13 +117,12 @@ pattern: (?m)^(?Key<id>\d+)\t(?Source<title>[^\t]*)\t(?Source<body>.*)
 
 ### 3.0 フォーマットバージョン
 
-現在の `formatVersion` は **3** です。この形式を書き出すツールのバージョンは **1.2.0** です。`excerptStringPutback version` でも確認できます。書き出した JSON の `program` には、そのファイルを作成したプログラムの名前が入ります。このツールが作成したときは `excerptStringPutback` です。`toolVersion` には、そのファイルを最後に書いたツールのバージョンが入ります。`fileVersion` は、利用者がこの JSON ファイル自身の版を自由に書く目印です。`note` は、利用者が JSON の値を自由に書く欄です。中身は読みません。ツールは `program` も `toolVersion` も `fileVersion` も `note` も、最新かどうかや書き戻しの判定に使いません。`program` や `toolVersion` や `fileVersion` や `note` が無いファイルも形式 3 として読みます。`formatVersion` 自身が 3 でないファイルは読みません。
+現在の `formatVersion` は **2** です。この形式を書き出すツールのバージョンは **1.1.0** です。`excerptStringPutback version` でも確認できます。書き出した JSON の `program` には、そのファイルを作成したプログラムの名前が入ります。このツールが作成したときは `excerptStringPutback` です。`toolVersion` には、そのファイルを最後に書いたツールのバージョンが入ります。`fileVersion` は、利用者がこの JSON ファイル自身の版を自由に書く目印です。`note` は、利用者が JSON の値を自由に書く欄です。中身は読みません。ツールは `program` も `toolVersion` も `fileVersion` も `note` も、最新かどうかや書き戻しの判定に使いません。`program` や `toolVersion` や `fileVersion` や `note` が無いファイルも形式 2 として読みます。`formatVersion` 自身が 2 でないファイルは読みません。
 
 | formatVersion | ツール | 内容 |
 | --- | --- | --- |
 | 1 | 1.0.0 | `(?P<名前>...)` をキー、最初の名前の無いキャプチャを原文にした初期形式。このツールは読まない |
-| 2 | 1.1.0 | `(?Key<名前>...)` と `(?Source<名前>...)`。1マッチ1項目のまま `source` と `replacements` を配列にする。番号は 1 から数える。このツールは読まない |
-| 3 | 1.2.0 | 形式 2 と同じフィールド。番号は `replacementNames` と `replacements` の 0 始まりのインデックス。0 未満は無効 |
+| 2 | 1.1.0 | `(?Key<名前>...)` と `(?Source<名前>...)`。1マッチ1項目のまま `source` と `replacements` を配列にする。番号は `replacementNames` と `replacements` の 0 始まりのインデックス。0 未満は無効 |
 
 JSON の形や、フィールドの意味、配列の並び、番号の数え方を変えるときは、必ず `formatVersion` を 1 増やしてからその形を書き出します。合わせてツールのバージョン番号も上げ、上の表に両方を残します。`formatVersion` を据え置いたまま、既存のファイルの意味が変わる変更をしてはなりません。
 
@@ -132,8 +131,8 @@ JSON の形や、フィールドの意味、配列の並び、番号の数え方
 ```json
 {
   "program": "excerptStringPutback",
-  "formatVersion": 3,
-  "toolVersion": "1.2.0",
+  "formatVersion": 2,
+  "toolVersion": "1.1.0",
   "fileVersion": "3",
   "note": "",
   "file": "data/script.txt",
@@ -232,7 +231,7 @@ JSON の形や、フィールドの意味、配列の並び、番号の数え方
 | フィールド | 意味 |
 | --- | --- |
 | `program` | この JSON を作成したプログラムの名前。JSON の最初のフィールド。抽出直後は `excerptStringPutback`。書き戻しでは変えない。空でも受け取る。判定には使わない |
-| `formatVersion` | JSON の形式番号。現在は 3。形式を変えたら 1 増やす |
+| `formatVersion` | JSON の形式番号。現在は 2。形式を変えたら 1 増やす |
 | `toolVersion` | この JSON を最後に書いたツールのバージョン。抽出でも書き戻しでも、実行中のツールの番号で上書きする。形式の判定には使わない |
 | `fileVersion` | この JSON ファイルの版。利用者が自由に書く文字列で、どのファイルが新しいかの目印にする。抽出直後は `""`。書き戻しでは変えない。中身の形式は問わない |
 | `note` | 利用者が自由に書く欄。JSON の値なら何でもよい。抽出直後は `""`。このツールは中身を読まない。テキストへは書き込まない。入力に書いてあった値は、書き戻した JSON にこのツールの字下げで残す。欄が無いときは空文字を書く |
@@ -292,7 +291,7 @@ JSON の形や、フィールドの意味、配列の並び、番号の数え方
 2. `pattern` をコンパイルし、名前と原文のキャプチャを決める。
 3. ファイルの前から順に、重ならない一致を取る。
 4. 各一致から `key`、`before`、`source`、`after`、`byteStart`、`byteLength` を作る。
-5. `formatVersion` は 3、`program` は `excerptStringPutback`、`toolVersion` は実行中のツールのバージョン、`fileVersion` と `note` は空文字、各項目の `replacements` は `source` を1行だけ入れた配列、`replacementNames` は `["changed"]`、`previousSource` は `source` と同じ長さの空文字、`status` と `matchedBy` は空文字、`used` は 0 にする。`sources` はパターンの原文名、原文グループが無いときは `[""]` にする。
+5. `formatVersion` は 2、`program` は `excerptStringPutback`、`toolVersion` は実行中のツールのバージョン、`fileVersion` と `note` は空文字、各項目の `replacements` は `source` を1行だけ入れた配列、`replacementNames` は `["changed"]`、`previousSource` は `source` と同じ長さの空文字、`status` と `matchedBy` は空文字、`used` は 0 にする。`sources` はパターンの原文名、原文グループが無いときは `[""]` にする。
 6. `methods` は、コマンドで無効にしていない方式を実行順で入れる。
 
 `changed` は、0番の変更後文字列の表示名です。中身は原文の複製で、人が書き換えてから書き戻します。`replacementNames` は対応づけには使いません。原文が空の位置は、変更後文字列も空になります。空の変更後文字列も書き戻し、その位置を空にします。
