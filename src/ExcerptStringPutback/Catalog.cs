@@ -47,9 +47,9 @@ internal sealed class Catalog
 
     public string Pattern { get; set; } = "";
 
-    public List<string> Keys { get; set; } = new();
+    public List<string> KeyNames { get; set; } = new();
 
-    public List<string> Sources { get; set; } = new();
+    public List<string> SourceNames { get; set; } = new();
 
     public List<string> ReplacementNames { get; set; } = new();
 
@@ -188,8 +188,8 @@ internal static class CatalogJson
                 Encoding = OptionalString(root, "encoding"),
                 Bom = OptionalBool(root, "bom"),
                 Pattern = OptionalString(root, "pattern"),
-                Keys = OptionalStrings(root, "keys"),
-                Sources = OptionalStrings(root, "sources"),
+                KeyNames = OptionalStrings(root, "keyNames"),
+                SourceNames = OptionalStrings(root, "sourceNames"),
                 ReplacementNames = OptionalStrings(root, "replacementNames"),
                 Used = OptionalInt(root, "used"),
                 Methods = root.TryGetProperty("methods", out var methods)
@@ -224,8 +224,8 @@ internal static class CatalogJson
         StringProp(builder, 1, "encoding", catalog.Encoding);
         BoolProp(builder, 1, "bom", catalog.Bom);
         StringProp(builder, 1, "pattern", catalog.Pattern);
-        StringsProp(builder, 1, "keys", catalog.Keys);
-        StringsProp(builder, 1, "sources", catalog.Sources);
+        StringsProp(builder, 1, "keyNames", catalog.KeyNames);
+        StringsProp(builder, 1, "sourceNames", catalog.SourceNames);
         StringsProp(builder, 1, "replacementNames", catalog.ReplacementNames);
         IntProp(builder, 1, "used", catalog.Used);
         StringsProp(builder, 1, "methods", catalog.Methods);

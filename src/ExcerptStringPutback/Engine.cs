@@ -21,8 +21,8 @@ internal static class Engine
             Encoding = decoded.EncodingName,
             Bom = decoded.Bom,
             Pattern = pattern,
-            Keys = compiled.Keys.ToList(),
-            Sources = SourceNames(compiled),
+            KeyNames = compiled.Keys.ToList(),
+            SourceNames = SourceNames(compiled),
             ReplacementNames = new List<string> { "changed" },
             Used = 0,
             Methods = methods.ToList(),
@@ -62,8 +62,8 @@ internal static class Engine
         EnsureNoOverlap(hits);
 
         var active = catalog.Methods.Where(method => !disabled.Contains(method)).ToHashSet(StringComparer.Ordinal);
-        var keyNamesOk = catalog.Keys.All(compiled.KeySet.Contains);
-        if (active.Contains("key") && catalog.Keys.Count > 0 && !keyNamesOk)
+        var keyNamesOk = catalog.KeyNames.All(compiled.KeySet.Contains);
+        if (active.Contains("key") && catalog.KeyNames.Count > 0 && !keyNamesOk)
         {
             stderr.WriteLine(Text.Current.KeyNameMissing);
         }
@@ -81,7 +81,7 @@ internal static class Engine
             usedSpans.Add(span);
         }
 
-        if (active.Contains("key") && catalog.Keys.Count > 0 && keyNamesOk)
+        if (active.Contains("key") && catalog.KeyNames.Count > 0 && keyNamesOk)
         {
             PairKey(catalog, compiled, hits, Pair);
         }
@@ -169,7 +169,7 @@ internal static class Engine
         }
 
         catalog.ToolVersion = ToolInfo.Version;
-        catalog.Sources = SourceNames(compiled);
+        catalog.SourceNames = SourceNames(compiled);
         catalog.Used = number;
         catalog.Encoding = decoded.EncodingName;
         catalog.Bom = decoded.Bom;
@@ -180,7 +180,7 @@ internal static class Engine
     private static void PairKey(Catalog catalog, Compiled compiled, IReadOnlyList<Hit> hits, Action<int, int, string> pair)
     {
         var entries = Group(catalog.Entries.Select((entry, index) => (index, Key: entry.Key.ToArray()))
-            .Where(item => item.Key.Length == catalog.Keys.Count));
+            .Where(item => item.Key.Length == catalog.KeyNames.Count));
         var spans = Group(hits.Select((hit, index) => (index, Key: KeyInCatalogOrder(catalog, compiled, hit).ToArray())));
         foreach (var (key, entryIndexes) in entries)
         {
@@ -199,19 +199,19 @@ internal static class Engine
     private static bool SourceNamesMatch(Catalog catalog, Compiled compiled)
     {
         var expected = SourceNames(compiled);
-        if (catalog.Sources.Count == 0)
+        if (catalog.SourceNames.Count == 0)
         {
             return true;
         }
 
-        if (catalog.Sources.Count != expected.Count)
+        if (catalog.SourceNames.Count != expected.Count)
         {
             return false;
         }
 
         for (var i = 0; i < expected.Count; i++)
         {
-            if (!string.Equals(catalog.Sources[i], expected[i], StringComparison.Ordinal))
+            if (!string.Equals(catalog.SourceNames[i], expected[i], StringComparison.Ordinal))
             {
                 return false;
             }
@@ -259,7 +259,7 @@ internal static class Engine
             map[names[i]] = hit.Key[i];
         }
 
-        return catalog.Keys.Select(name => map.TryGetValue(name, out var value) ? value : "").ToList();
+        return catalog.KeyNames.Select(name => map.TryGetValue(name, out var value) ? value : "").ToList();
     }
 
     private static void PairOffset(
