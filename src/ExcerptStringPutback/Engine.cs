@@ -21,7 +21,7 @@ internal static class Engine
             Encoding = decoded.EncodingName,
             Bom = decoded.Bom,
             Pattern = pattern,
-            Keys = compiled.Keys.ToList(),
+            KeyNames = compiled.Keys.ToList(),
             SourceNames = SourceNames(compiled),
             ReplacementNames = new List<string> { "changed" },
             Used = 0,
@@ -62,8 +62,8 @@ internal static class Engine
         EnsureNoOverlap(hits);
 
         var active = catalog.Methods.Where(method => !disabled.Contains(method)).ToHashSet(StringComparer.Ordinal);
-        var keyNamesOk = catalog.Keys.All(compiled.KeySet.Contains);
-        if (active.Contains("key") && catalog.Keys.Count > 0 && !keyNamesOk)
+        var keyNamesOk = catalog.KeyNames.All(compiled.KeySet.Contains);
+        if (active.Contains("key") && catalog.KeyNames.Count > 0 && !keyNamesOk)
         {
             stderr.WriteLine(Text.Current.KeyNameMissing);
         }
@@ -81,7 +81,7 @@ internal static class Engine
             usedSpans.Add(span);
         }
 
-        if (active.Contains("key") && catalog.Keys.Count > 0 && keyNamesOk)
+        if (active.Contains("key") && catalog.KeyNames.Count > 0 && keyNamesOk)
         {
             PairKey(catalog, compiled, hits, Pair);
         }
@@ -180,7 +180,7 @@ internal static class Engine
     private static void PairKey(Catalog catalog, Compiled compiled, IReadOnlyList<Hit> hits, Action<int, int, string> pair)
     {
         var entries = Group(catalog.Entries.Select((entry, index) => (index, Key: entry.Key.ToArray()))
-            .Where(item => item.Key.Length == catalog.Keys.Count));
+            .Where(item => item.Key.Length == catalog.KeyNames.Count));
         var spans = Group(hits.Select((hit, index) => (index, Key: KeyInCatalogOrder(catalog, compiled, hit).ToArray())));
         foreach (var (key, entryIndexes) in entries)
         {
@@ -259,7 +259,7 @@ internal static class Engine
             map[names[i]] = hit.Key[i];
         }
 
-        return catalog.Keys.Select(name => map.TryGetValue(name, out var value) ? value : "").ToList();
+        return catalog.KeyNames.Select(name => map.TryGetValue(name, out var value) ? value : "").ToList();
     }
 
     private static void PairOffset(

@@ -115,7 +115,7 @@ internal sealed class Messages
         DuplicateCaptureName = "同じ名前のキャプチャが2つあります。",
         MatchTimeout = "正規表現の照合が時間内に終わりませんでした。",
         PatternMissing = "パターンがありません。",
-        KeyNameMissing = "警告: カタログの keys に、今のパターンに無い名前があります。key 方式は使いません。",
+        KeyNameMissing = "警告: カタログの keyNames に、今のパターンに無い名前があります。key 方式は使いません。",
         OverlappingSource = "原文の範囲が重なっています。",
         CannotNormalize = "変更後文字列を NFC にできません。",
         UnknownMethod = "未知の方式名です: {0}",

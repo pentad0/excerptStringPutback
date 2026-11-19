@@ -22,7 +22,7 @@ public class ExcerptStringPutbackTests
         Assert.Equal("", stdout);
         Assert.Contains("1 件", stderr);
         var catalog = CatalogJson.Parse(File.ReadAllText(json));
-        Assert.Equal(new[] { "chapter", "id" }, catalog.Keys);
+        Assert.Equal(new[] { "chapter", "id" }, catalog.KeyNames);
         Assert.Equal(new[] { "line" }, catalog.SourceNames);
         var entry = Assert.Single(catalog.Entries);
         Assert.Equal(new[] { "1", "15" }, entry.Key);
@@ -93,7 +93,7 @@ public class ExcerptStringPutbackTests
     public void Groups_other_than_key_and_source_are_not_extracted()
     {
         var catalog = Extract("Hello", "(?P<id>He)(?Note<x>ll)(o)");
-        Assert.Empty(catalog.Keys);
+        Assert.Empty(catalog.KeyNames);
         Assert.Equal(new[] { "" }, catalog.SourceNames);
         var entry = Assert.Single(catalog.Entries);
         Assert.Empty(entry.Key);
@@ -106,7 +106,7 @@ public class ExcerptStringPutbackTests
     public void One_match_keeps_every_source_in_one_entry()
     {
         var catalog = Extract("15\tHello\tWorld", "(?m)^(?Key<id>\\d+)\t(?Source<title>[^\\t]*)\t(?Source<body>.*)");
-        Assert.Equal(new[] { "id" }, catalog.Keys);
+        Assert.Equal(new[] { "id" }, catalog.KeyNames);
         Assert.Equal(new[] { "title", "body" }, catalog.SourceNames);
         var entry = Assert.Single(catalog.Entries);
         Assert.Equal(new[] { "15" }, entry.Key);
@@ -449,7 +449,7 @@ public class ExcerptStringPutbackTests
           "encoding": "utf-8",
           "bom": false,
           "pattern": "(Hello)",
-          "keys": [],
+          "keyNames": [],
           "sourceNames": [""],
           "replacementNames": ["changed"],
           "used": 0,
