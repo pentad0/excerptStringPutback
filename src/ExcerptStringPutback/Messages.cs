@@ -123,7 +123,7 @@ internal sealed class Messages
         JsonUtf8 = "JSON を UTF-8 として読めません。",
         JsonShape = "JSON の形式が違います。",
         FormatVersion = "formatVersion が 2 ではありません。",
-        SourceNameMissing = "警告: カタログの sources に、今のパターンに無い名前があります。",
+        SourceNameMissing = "警告: カタログの sourceNames に、今のパターンに無い名前があります。",
         UsedInvalid = "used が不正です。",
         EntriesArray = "entries は配列です。",
         MustBeArray = "{0} は配列です。",

@@ -56,16 +56,16 @@ BOM が無いファイルは、自動では判別しません。`-encoding` が�
 括弧の役割は、`(?` の直後の単語で決まります。大文字と小文字は区別します。`<>` の中の名前は、ASCII の英数字と `_` です。
 
 - `(?Key<名前>...)` はキーです。出てくる順に `keys` へ並べます。
-- `(?Source<名前>...)` は原文です。出てくる順に `sources` へ並べます。
+- `(?Source<名前>...)` は原文です。出てくる順に `sourceNames` へ並べます。
 - `(?:...)` はキャプチャしません。
 - 名前の無い `(...)`、`(?P<名前>...)`、`(?<名前>...)`、`Key` でも `Source` でもない `(?単語<名前>...)` は抜き出しません。一致には参加します。エラーにはしません。
 - `(?i)`、`(?m)`、`(?s)`、`(?U)`、`(?i:...)` はフラグです。
 
 キーと原文の名前は1つの名前空間です。同じ名前が2回出てくるパターンはエラーです。先読み、後読み、後方参照はエラーです。
 
-`(?Source<...>)` が1つも無いときは、一致全体が原文1つです。カタログの `sources` は `[""]` です。項目の `source` はその一致全体を1つ入れた配列、`before` と `after` は `[""]` です。
+`(?Source<...>)` が1つも無いときは、一致全体が原文1つです。カタログの `sourceNames` は `[""]` です。項目の `source` はその一致全体を1つ入れた配列、`before` と `after` は `[""]` です。
 
-`sources` と項目の `source` は、配列の同じ位置が対応します。名前を項目へは書きません。その一致で `(?Source<...>)` が参加しなかった位置は、配列の位置をずらさないように残します。その位置の `source`、`before`、`after` は `""`、`byteStart` は `-1`、`byteLength` は `0` です。書き戻しではその位置を書きません。
+`sourceNames` と項目の `source` は、配列の同じ位置が対応します。名前を項目へは書きません。その一致で `(?Source<...>)` が参加しなかった位置は、配列の位置をずらさないように残します。その位置の `source`、`before`、`after` は `""`、`byteStart` は `-1`、`byteLength` は `0` です。書き戻しではその位置を書きません。
 
 `(?Source<名前>...)+` や `*` のように同じグループが繰り返すときは、そのグループの最後の繰り返しだけが残ります。
 
@@ -83,7 +83,7 @@ pattern: (?m)^(?Key<key>[A-Z0-9_]+)=(?Source<value>.*)$
 | フィールド | 値 |
 | --- | --- |
 | `keys` | `["key"]` |
-| `sources` | `["value"]` |
+| `sourceNames` | `["value"]` |
 | 項目の `key` | `["MSG_01"]` |
 | `before` | `["MSG_01="]` |
 | `source` | `["Hello"]` |
@@ -99,7 +99,7 @@ pattern: (?m)^(?Key<id>\d+)\t(?Source<title>[^\t]*)\t(?Source<body>.*)
 | フィールド | 値 |
 | --- | --- |
 | `keys` | `["id"]` |
-| `sources` | `["title", "body"]` |
+| `sourceNames` | `["title", "body"]` |
 | 項目の `key` | `["15"]` |
 | `before` | `["15\t", "15\tHello\t"]` |
 | `source` | `["Hello", "World"]` |
@@ -113,7 +113,7 @@ pattern: (?m)^(?Key<id>\d+)\t(?Source<title>[^\t]*)\t(?Source<body>.*)
 
 未知のフィールドは、ツールが書き出すときに残しません。JSON に足しても、`putback` のあとには消えます。
 
-フィールドは次の2段だけです。`program`、`formatVersion`、`toolVersion`、`fileVersion`、`note`、`pattern`、`keys`、`sources`、`replacementNames`、`used`、`methods` は先頭に1つずつです。`program` は JSON の最初のフィールドです。項目の中には繰り返しません。
+フィールドは次の2段だけです。`program`、`formatVersion`、`toolVersion`、`fileVersion`、`note`、`pattern`、`keys`、`sourceNames`、`replacementNames`、`used`、`methods` は先頭に1つずつです。`program` は JSON の最初のフィールドです。項目の中には繰り返しません。
 
 ### 3.0 フォーマットバージョン
 
@@ -142,7 +142,7 @@ JSON の形や、フィールドの意味、配列の並び、番号の数え方
   "keys": [
     "key"
   ],
-  "sources": [
+  "sourceNames": [
     "value"
   ],
   "replacementNames": [
@@ -240,7 +240,7 @@ JSON の形や、フィールドの意味、配列の並び、番号の数え方
 | `bom` | そのファイルに BOM があったか |
 | `pattern` | 抽出と書き戻しの両方で使う正規表現 |
 | `keys` | `(?Key<名前>...)` の名前。左から並ぶ。無ければ `[]` |
-| `sources` | `(?Source<名前>...)` の名前。左から並ぶ。原文グループが無いときは `[""]`。項目の `source` と同じ位置が対応する |
+| `sourceNames` | `(?Source<名前>...)` の名前。左から並ぶ。原文グループが無いときは `[""]`。項目の `source` と同じ位置が対応する |
 | `replacementNames` | 変更後文字列の番号の表示名。0番が先頭。抽出直後は `["changed"]`。書き戻しの判定には使わない |
 | `used` | `-number` を省略したときに書き戻す変更後文字列の番号。抽出直後は `0`。書き戻しのあとには、その回の番号で上書きする。欄が無いときは 0 |
 | `methods` | 有効な方式。省略時は6つ全部。`[]` は全部無効 |
@@ -254,7 +254,7 @@ JSON の形や、フィールドの意味、配列の並び、番号の数え方
 | --- | --- |
 | `key` | `keys` と同じ順の、その一致の識別子。個数は `keys` と一致する |
 | `before` | 一致全体のうち、同じ位置の原文の前。`source` と同じ長さ |
-| `source` | 原文の配列。NFC にはしない。`sources` と同じ長さ |
+| `source` | 原文の配列。NFC にはしない。`sourceNames` と同じ長さ |
 | `after` | 一致全体のうち、同じ位置の原文の後。`source` と同じ長さ |
 | `previousSource` | `source` と同じ長さ。変わっていない位置は `""`。抽出直後はすべて `""`。いずれかの位置が変わった項目では、変わった位置に変わる前の文字列を入れる |
 | `replacements` | 変更後文字列。外側が番号、内側が `source` と同じ位置。0番が先頭。抽出直後は、その項目の `source` を1行だけ入れた配列 |
@@ -291,7 +291,7 @@ JSON の形や、フィールドの意味、配列の並び、番号の数え方
 2. `pattern` をコンパイルし、名前と原文のキャプチャを決める。
 3. ファイルの前から順に、重ならない一致を取る。
 4. 各一致から `key`、`before`、`source`、`after`、`byteStart`、`byteLength` を作る。
-5. `formatVersion` は 2、`program` は `excerptStringPutback`、`toolVersion` は実行中のツールのバージョン、`fileVersion` と `note` は空文字、各項目の `replacements` は `source` を1行だけ入れた配列、`replacementNames` は `["changed"]`、`previousSource` は `source` と同じ長さの空文字、`status` と `matchedBy` は空文字、`used` は 0 にする。`sources` はパターンの原文名、原文グループが無いときは `[""]` にする。
+5. `formatVersion` は 2、`program` は `excerptStringPutback`、`toolVersion` は実行中のツールのバージョン、`fileVersion` と `note` は空文字、各項目の `replacements` は `source` を1行だけ入れた配列、`replacementNames` は `["changed"]`、`previousSource` は `source` と同じ長さの空文字、`status` と `matchedBy` は空文字、`used` は 0 にする。`sourceNames` はパターンの原文名、原文グループが無いときは `[""]` にする。
 6. `methods` は、コマンドで無効にしていない方式を実行順で入れる。
 
 `changed` は、0番の変更後文字列の表示名です。中身は原文の複製で、人が書き換えてから書き戻します。`replacementNames` は対応づけには使いません。原文が空の位置は、変更後文字列も空になります。空の変更後文字列も書き戻し、その位置を空にします。
@@ -344,7 +344,7 @@ JSON の形や、フィールドの意味、配列の並び、番号の数え方
 
 更新で増えた一致は、テキストファイル側の原文のまま残します。JSON には自動では追加しません。消えた一致の項目は JSON に残し、`status` を `unmatched`、`matchedBy` を空、`previousSource` を `source` と同じ長さの空文字にします。`source` は更新しません。`replacements` は残します。
 
-カタログの `sources` の並びが、今のパターンの原文名と違うときは警告を出します。`key` 方式は、この警告では無効にしません。書き戻しのあと、`sources` は今のパターンの名前で上書きします。原文グループが無いときは `[""]` です。
+カタログの `sourceNames` の並びが、今のパターンの原文名と違うときは警告を出します。`key` 方式は、この警告では無効にしません。書き戻しのあと、`sourceNames` は今のパターンの名前で上書きします。原文グループが無いときは `[""]` です。
 
 ### 5.6 実際に書くとき
 

@@ -22,7 +22,7 @@ internal static class Engine
             Bom = decoded.Bom,
             Pattern = pattern,
             Keys = compiled.Keys.ToList(),
-            Sources = SourceNames(compiled),
+            SourceNames = SourceNames(compiled),
             ReplacementNames = new List<string> { "changed" },
             Used = 0,
             Methods = methods.ToList(),
@@ -169,7 +169,7 @@ internal static class Engine
         }
 
         catalog.ToolVersion = ToolInfo.Version;
-        catalog.Sources = SourceNames(compiled);
+        catalog.SourceNames = SourceNames(compiled);
         catalog.Used = number;
         catalog.Encoding = decoded.EncodingName;
         catalog.Bom = decoded.Bom;
@@ -199,19 +199,19 @@ internal static class Engine
     private static bool SourceNamesMatch(Catalog catalog, Compiled compiled)
     {
         var expected = SourceNames(compiled);
-        if (catalog.Sources.Count == 0)
+        if (catalog.SourceNames.Count == 0)
         {
             return true;
         }
 
-        if (catalog.Sources.Count != expected.Count)
+        if (catalog.SourceNames.Count != expected.Count)
         {
             return false;
         }
 
         for (var i = 0; i < expected.Count; i++)
         {
-            if (!string.Equals(catalog.Sources[i], expected[i], StringComparison.Ordinal))
+            if (!string.Equals(catalog.SourceNames[i], expected[i], StringComparison.Ordinal))
             {
                 return false;
             }

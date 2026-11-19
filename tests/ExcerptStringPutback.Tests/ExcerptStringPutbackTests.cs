@@ -23,7 +23,7 @@ public class ExcerptStringPutbackTests
         Assert.Contains("1 件", stderr);
         var catalog = CatalogJson.Parse(File.ReadAllText(json));
         Assert.Equal(new[] { "chapter", "id" }, catalog.Keys);
-        Assert.Equal(new[] { "line" }, catalog.Sources);
+        Assert.Equal(new[] { "line" }, catalog.SourceNames);
         var entry = Assert.Single(catalog.Entries);
         Assert.Equal(new[] { "1", "15" }, entry.Key);
         Assert.Equal(new[] { "1\t15\t" }, entry.Before);
@@ -94,7 +94,7 @@ public class ExcerptStringPutbackTests
     {
         var catalog = Extract("Hello", "(?P<id>He)(?Note<x>ll)(o)");
         Assert.Empty(catalog.Keys);
-        Assert.Equal(new[] { "" }, catalog.Sources);
+        Assert.Equal(new[] { "" }, catalog.SourceNames);
         var entry = Assert.Single(catalog.Entries);
         Assert.Empty(entry.Key);
         Assert.Equal(new[] { "Hello" }, entry.Source);
@@ -107,7 +107,7 @@ public class ExcerptStringPutbackTests
     {
         var catalog = Extract("15\tHello\tWorld", "(?m)^(?Key<id>\\d+)\t(?Source<title>[^\\t]*)\t(?Source<body>.*)");
         Assert.Equal(new[] { "id" }, catalog.Keys);
-        Assert.Equal(new[] { "title", "body" }, catalog.Sources);
+        Assert.Equal(new[] { "title", "body" }, catalog.SourceNames);
         var entry = Assert.Single(catalog.Entries);
         Assert.Equal(new[] { "15" }, entry.Key);
         Assert.Equal(new[] { "15\t", "15\tHello\t" }, entry.Before);
@@ -141,7 +141,7 @@ public class ExcerptStringPutbackTests
     {
         var catalog = Extract("B", "(?Source<a>A)?(?Source<b>B)");
         var entry = Assert.Single(catalog.Entries);
-        Assert.Equal(new[] { "a", "b" }, catalog.Sources);
+        Assert.Equal(new[] { "a", "b" }, catalog.SourceNames);
         Assert.Equal(new[] { "", "B" }, entry.Source);
         Assert.Equal(new[] { -1, 0 }, entry.ByteStart);
         Assert.Equal(new[] { 0, 1 }, entry.ByteLength);
@@ -220,7 +220,7 @@ public class ExcerptStringPutbackTests
     {
         var catalog = Extract(") ( subhead = ", "(.*)");
         var raw = CatalogJson.ToJson(catalog);
-        Assert.Contains("  \"sources\": [\n    \"\"\n  ],\n", raw, StringComparison.Ordinal);
+        Assert.Contains("  \"sourceNames\": [\n    \"\"\n  ],\n", raw, StringComparison.Ordinal);
         Assert.Contains("  \"replacementNames\": [\n    \"changed\"\n  ],\n", raw, StringComparison.Ordinal);
         Assert.Contains("  \"methods\": [\n    \"key\",\n    \"offset\",\n    \"exact\",\n    \"context\",\n    \"align\",\n    \"revised\"\n  ],\n", raw, StringComparison.Ordinal);
         Assert.Contains("      \"key\": [],\n", raw, StringComparison.Ordinal);
@@ -450,7 +450,7 @@ public class ExcerptStringPutbackTests
           "bom": false,
           "pattern": "(Hello)",
           "keys": [],
-          "sources": [""],
+          "sourceNames": [""],
           "replacementNames": ["changed"],
           "used": 0,
           "methods": ["revised", "exact"],
