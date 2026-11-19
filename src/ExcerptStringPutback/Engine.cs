@@ -24,7 +24,7 @@ internal static class Engine
             Keys = compiled.Keys.ToList(),
             Sources = SourceNames(compiled),
             ReplacementNames = new List<string> { "changed" },
-            Used = 1,
+            Used = 0,
             Methods = methods.ToList(),
         };
         foreach (var hit in hits)
@@ -111,12 +111,12 @@ internal static class Engine
         foreach (var (entryIndex, pair) in pairs)
         {
             var entry = catalog.Entries[entryIndex];
-            if (number - 1 >= entry.Replacements.Count)
+            if (number < 0 || number >= entry.Replacements.Count)
             {
                 continue;
             }
 
-            var row = entry.Replacements[number - 1];
+            var row = entry.Replacements[number];
             var hit = hits[pair.Span];
             var count = Math.Min(row.Count, hit.ByteStart.Length);
             for (var slot = 0; slot < count; slot++)
