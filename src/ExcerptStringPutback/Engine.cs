@@ -155,10 +155,7 @@ internal static class Engine
             entry.MatchedBy = pair.Method;
         }
 
-        if (!writeSource)
-        {
-            catalog.Used = number;
-        }
+        catalog.Used = writeSource ? UsedValue.Source : number;
 
         return Splice(decoded.Bytes, replacements);
     }

@@ -238,7 +238,7 @@ JSON の形や、フィールドの意味、配列の並び、番号の数え方
 | `sourceNames` | `(?Source<名前>...)` の名前。左から並ぶ。原文グループが無いときは `[""]`。項目の `source` と同じ位置が対応する。書き戻しでは変えない。今のパターンと違うときは警告を出す |
 | `replacementNames` | 変更後文字列の番号の表示名。0番が先頭。抽出直後は `["changed"]`。書き戻しの判定には使わない |
 | `entries` | 切り出した文字列。ファイル順 |
-| `used` | `-number` を省略したときに書き戻す変更後文字列の番号。抽出直後は `0`。書き戻しのあとには、その回の番号で上書きする。欄が無いときは 0。`entries` のあと |
+| `used` | `-number` も `-source` も省略したときに書き戻す対象。0 以上の整数ならその番号の変更後文字列。`"source"` なら各項目の `source`。抽出直後は `0`。番号で書き戻したあとはその番号。`-source` で書き戻したあとは `"source"`。欄が無いときは 0。0 未満と、`"source"` 以外の文字列はエラー。`entries` のあと |
 | `methods` | 有効な方式。省略時は6つ全部。`[]` は全部無効。JSON の最後のフィールド |
 
 `methods` に書く順序は保存時に実行順へ並べ直します。実行順は常に `key`、`sourceByte`、`exact`、`context`、`align`、`revised` です。
@@ -271,8 +271,8 @@ JSON の形や、フィールドの意味、配列の並び、番号の数え方
 - `sourceByteStart` が `-1` の位置は書きません。
 - 書かなかった項目の `replacements` は残します。
 - 実行した番号は、終わったときに `used` へ上書きします。
-- `-number` を省略したときは `used` を使います。`used` が無いときは 0 です。
-- `-source` を付けたときは、この番号を使わない。各項目の `source` を書き、`used` は変えない。`-number` と同時に指定したときはエラーです。`-source` は値を取りません。
+- `-number` も `-source` も省略したときは `used` を使います。整数ならその番号、`"source"` なら各項目の `source` を書きます。欄が無いときは 0 です。
+- `-source` を付けたときは、番号を使わず各項目の `source` を書きます。終わったときに `used` を `"source"` にします。`-number` と同時に指定したときはエラーです。`-source` は値を取りません。
 
 途中の変更後文字列を消すときは、全項目の同じ番号と、`replacementNames` の同じ位置をまとめて消します。番号は外側の配列の位置そのものなので、途中を消すと後ろの番号が繰り上がります。
 
@@ -347,9 +347,9 @@ JSON の形や、フィールドの意味、配列の並び、番号の数え方
 
 選んだ番号の行がある項目は、その行に書いてある位置だけを差し替えます。空文字も含めます。`sourceByteStart` が `-1` の位置は残します。差し替えるのは、その回に読み直した原文のバイト範囲です。一致の外側と、原文と原文のあいだは残します。差し替えは開始位置、長さ、配列の位置の順に組み立て、結果を読んだときと同じ符号化と BOM で出力します。変更後文字列は NFC にしてから符号化します。
 
-`-source` のときは、番号の行の代わりに各項目の `source` を差し込みます。空文字も含めます。`sourceByteStart` が `-1` の位置は残します。`source` が一致の位置より短いときは、書いてある位置だけを書きます。長い分は書きません。NFC にはせず、原文のまま符号化します。`replacements` は残します。`used` は変えません。
+`-source` のときは、番号の行の代わりに各項目の `source` を差し込みます。空文字も含めます。`sourceByteStart` が `-1` の位置は残します。`source` が一致の位置より短いときは、書いてある位置だけを書きます。長い分は書きません。NFC にはせず、原文のまま符号化します。`replacements` は残します。`used` は `"source"` にします。
 
-書き戻しで更新するのは、先頭の `used` と `methods`、全項目の `status` と `matchedBy` だけです。`-source` のときは `used` を変えません。`methods` は実行順へ並べ替えます。`-disable` で外した方式は消しません。`toolVersion`、`encoding`、`bom`、`file`、`sourceNames`、`key`、`before`、`source`、`after`、`sourceByteStart`、`sourceByteLength` は変えません。`program`、`fileVersion`、`note`、`pattern`、`keyNames`、`replacementNames`、`replacements` も変えません。
+書き戻しで更新するのは、先頭の `used` と `methods`、全項目の `status` と `matchedBy` だけです。`-source` のときは `used` を `"source"` にします。`methods` は実行順へ並べ替えます。`-disable` で外した方式は消しません。`toolVersion`、`encoding`、`bom`、`file`、`sourceNames`、`key`、`before`、`source`、`after`、`sourceByteStart`、`sourceByteLength` は変えません。`program`、`fileVersion`、`note`、`pattern`、`keyNames`、`replacementNames`、`replacements` も変えません。
 
 書き込んだ項目は次のようにします。
 
