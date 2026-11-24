@@ -418,6 +418,82 @@ public class ExcerptStringPutbackTests
     }
 
     [Fact]
+    public void Source_flag_writes_the_catalog_source_and_keeps_it()
+    {
+        var catalog = Extract("15\tHello\tWorld", "(?m)^(?Key<id>\\d+)\t(?Source<title>[^\\t]*)\t(?Source<body>.*)");
+        catalog.Entries[0].Replacements[0][0] = "こんにちは";
+        catalog.Entries[0].Replacements[0][1] = "世界";
+        catalog.Used = 1;
+        var output = Apply(catalog, "15\tBye\tWorld", source: true);
+        Assert.Equal("15\tHello\tWorld", Encoding.UTF8.GetString(output.Bytes));
+        var entry = output.Catalog.Entries[0];
+        Assert.Equal("revised", entry.Status);
+        Assert.Equal("key", entry.MatchedBy);
+        Assert.Equal(new[] { "15" }, entry.Key);
+        Assert.Equal(new[] { "Hello", "World" }, entry.Source);
+        Assert.Equal(new[] { "Bye", "" }, entry.PreviousSource);
+        Assert.Equal(new[] { "15\t", "15\tBye\t" }, entry.Before);
+        Assert.Equal(new[] { "\tWorld", "" }, entry.After);
+        Assert.Equal(new[] { 3, 7 }, entry.ByteStart);
+        Assert.Equal(new[] { 3, 5 }, entry.ByteLength);
+        Assert.Equal(new[] { "こんにちは", "世界" }, Assert.Single(entry.Replacements));
+        Assert.Equal(1, output.Catalog.Used);
+
+        catalog.Entries[0].Source = new List<string> { "やあ" };
+        var shorter = Apply(catalog, "15\tHello\tWorld", source: true);
+        Assert.Equal("15\tやあ\tWorld", Encoding.UTF8.GetString(shorter.Bytes));
+        Assert.Equal(new[] { "やあ" }, shorter.Catalog.Entries[0].Source);
+        Assert.Equal(new[] { "Hello" }, shorter.Catalog.Entries[0].PreviousSource);
+        Assert.Equal(1, shorter.Catalog.Used);
+
+        var longer = Extract("15\tHello\tWorld", "(?m)^(?Key<id>\\d+)\t(?Source<title>[^\\t]*)\t(?Source<body>.*)");
+        longer.Entries[0].Source.Add("extra");
+        var extra = Apply(longer, "15\tHello\tWorld", source: true);
+        Assert.Equal("15\tHello\tWorld", Encoding.UTF8.GetString(extra.Bytes));
+        Assert.Equal(new[] { "Hello", "World", "extra" }, extra.Catalog.Entries[0].Source);
+        Assert.Equal(new[] { "", "", "" }, extra.Catalog.Entries[0].PreviousSource);
+        Assert.Equal("revised", extra.Catalog.Entries[0].Status);
+
+        var decomposed = "\u304B\u3099";
+        var rawCatalog = Extract("file", "(.*)");
+        rawCatalog.Entries[0].Source[0] = decomposed;
+        rawCatalog.Entries[0].Replacements[0][0] = "KEEP";
+        rawCatalog.Used = 1;
+        var raw = Apply(rawCatalog, "file", source: true);
+        Assert.Equal(Encoding.UTF8.GetBytes(decomposed), raw.Bytes);
+        Assert.Equal(new[] { decomposed }, raw.Catalog.Entries[0].Source);
+        Assert.Equal(new[] { "file" }, raw.Catalog.Entries[0].PreviousSource);
+        Assert.Equal(new[] { "KEEP" }, Assert.Single(raw.Catalog.Entries[0].Replacements));
+        Assert.Equal(1, raw.Catalog.Used);
+
+        var absent = Extract("B", "(?Source<a>A)?(?Source<b>B)");
+        absent.Entries[0].Source[0] = "GONE";
+        absent.Entries[0].Source[1] = "C";
+        var skipped = Apply(absent, "B", source: true);
+        Assert.Equal("C", Encoding.UTF8.GetString(skipped.Bytes));
+        Assert.Equal(new[] { "GONE", "C" }, skipped.Catalog.Entries[0].Source);
+        Assert.Equal(new[] { "", "B" }, skipped.Catalog.Entries[0].PreviousSource);
+
+        var clear = Extract("Hello", "(Hello)");
+        clear.Entries[0].Source[0] = "";
+        var emptied = Apply(clear, "Hello", source: true);
+        Assert.Equal("", Encoding.UTF8.GetString(emptied.Bytes));
+        Assert.Equal(new[] { "" }, emptied.Catalog.Entries[0].Source);
+        Assert.Equal(new[] { "Hello" }, emptied.Catalog.Entries[0].PreviousSource);
+
+        var same = Extract("Hello", "(.*)");
+        same.Entries[0].Replacements[0][0] = "Bye";
+        same.Used = 1;
+        var unchanged = Apply(same, "Hello", source: true);
+        Assert.Equal(Encoding.UTF8.GetBytes("Hello"), unchanged.Bytes);
+        Assert.Equal("exact", unchanged.Catalog.Entries[0].Status);
+        Assert.Equal(new[] { "Hello" }, unchanged.Catalog.Entries[0].Source);
+        Assert.Equal(new[] { "" }, unchanged.Catalog.Entries[0].PreviousSource);
+        Assert.Equal(new[] { "Bye" }, Assert.Single(unchanged.Catalog.Entries[0].Replacements));
+        Assert.Equal(1, unchanged.Catalog.Used);
+    }
+
+    [Fact]
     public void Unchanged_write_keeps_the_original_bytes()
     {
         var bytes = new byte[] { 0xEF, 0xBB, 0xBF, (byte)'A', (byte)'B' };
@@ -663,6 +739,61 @@ public class ExcerptStringPutbackTests
     }
 
     [Fact]
+    public void Source_flag_rejects_a_number_and_leaves_used_unchanged()
+    {
+        using var dir = Temp();
+        var text = Path.Combine(dir, "in.txt");
+        var json = Path.Combine(dir, "cat.json");
+        var output = Path.Combine(dir, "out.txt");
+        File.WriteAllText(text, "Hello");
+        Assert.Equal(0, Run("excerpt", "-encoding", "utf-8", "-pattern", "(.*)", "-o", json, text).Code);
+        var catalog = CatalogJson.Parse(File.ReadAllText(json));
+        catalog.Entries[0].Replacements[0][0] = "Bye";
+        catalog.Used = 1;
+        File.WriteAllText(json, CatalogJson.ToJson(catalog));
+
+        var both = Run("putback", "-source", "-number", "0", "-o", output, json, text);
+        Assert.Equal(2, both.Code);
+        Assert.Contains("-number と -source は同時に指定できません。", both.Stderr);
+        Assert.Equal("Hello", File.ReadAllText(text));
+        Assert.False(File.Exists(output));
+        Assert.Equal(1, CatalogJson.Parse(File.ReadAllText(json)).Used);
+        Assert.Equal(new[] { "Bye" }, Assert.Single(CatalogJson.Parse(File.ReadAllText(json)).Entries[0].Replacements));
+
+        var english = Run("putback", "-language", "en", "-number", "0", "-source", "-o", output, json, text);
+        Assert.Equal(2, english.Code);
+        Assert.Contains("-number and -source cannot be used together.", english.Stderr);
+
+        var valued = Run("putback", "-source=Hello", "-o", output, json, text);
+        Assert.Equal(2, valued.Code);
+        Assert.Contains("-source に値は付けません。", valued.Stderr);
+
+        var twice = Run("putback", "-source", "-source", "-o", output, json, text);
+        Assert.Equal(2, twice.Code);
+        Assert.Contains("同じ引数が2回あります。", twice.Stderr);
+
+        Assert.Equal(0, Run("putback", "-source", "-o", output, json, text).Code);
+        Assert.Equal("Hello", File.ReadAllText(output));
+        Assert.Equal("Hello", File.ReadAllText(text));
+        var updated = CatalogJson.Parse(File.ReadAllText(json));
+        Assert.Equal(1, updated.Used);
+        Assert.Equal("exact", updated.Entries[0].Status);
+        Assert.Equal(new[] { "Hello" }, updated.Entries[0].Source);
+        Assert.Equal(new[] { "Bye" }, Assert.Single(updated.Entries[0].Replacements));
+
+        File.WriteAllText(text, "Hello");
+        Assert.Equal(0, Run("putback", "-o", output, json, text).Code);
+        Assert.Equal("Hello", File.ReadAllText(output));
+        Assert.Equal("unmatched", CatalogJson.Parse(File.ReadAllText(json)).Entries[0].Status);
+        Assert.Equal(1, CatalogJson.Parse(File.ReadAllText(json)).Used);
+
+        File.WriteAllText(text, "Hello");
+        Assert.Equal(0, Run("putback", "-number", "0", "-o", output, json, text).Code);
+        Assert.Equal("Bye", File.ReadAllText(output));
+        Assert.Equal(0, CatalogJson.Parse(File.ReadAllText(json)).Used);
+    }
+
+    [Fact]
     public void Write_updates_the_input_text_when_output_is_the_same_path()
     {
         using var dir = Temp();
@@ -731,7 +862,7 @@ public class ExcerptStringPutbackTests
         return (result.Code, result.Stderr);
     }
 
-    private static (byte[] Bytes, Catalog Catalog) Apply(Catalog catalog, string text, HashSet<string>? disabled = null)
+    private static (byte[] Bytes, Catalog Catalog) Apply(Catalog catalog, string text, HashSet<string>? disabled = null, bool source = false)
     {
         using var dir = Temp();
         var input = Path.Combine(dir, "in.txt");
@@ -739,7 +870,14 @@ public class ExcerptStringPutbackTests
         var json = Path.Combine(dir, "cat.json");
         File.WriteAllText(json, CatalogJson.ToJson(catalog));
         var output = Path.Combine(dir, "out.txt");
-        var args = new List<string> { "putback", "-o", output };
+        var args = new List<string> { "putback" };
+        if (source)
+        {
+            args.Add("-source");
+        }
+
+        args.Add("-o");
+        args.Add(output);
         if (disabled is not null)
         {
             args.Add("-disable");

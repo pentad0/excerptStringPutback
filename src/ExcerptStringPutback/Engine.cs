@@ -47,7 +47,7 @@ internal static class Engine
         return catalog;
     }
 
-    public static byte[] Write(Catalog catalog, string textPath, int number, IReadOnlySet<string> disabled, TextWriter stderr)
+    public static byte[] Write(Catalog catalog, string textPath, int number, IReadOnlySet<string> disabled, TextWriter stderr, bool writeSource)
     {
         if (string.IsNullOrEmpty(catalog.Pattern))
         {
@@ -111,12 +111,21 @@ internal static class Engine
         foreach (var (entryIndex, pair) in pairs)
         {
             var entry = catalog.Entries[entryIndex];
-            if (number < 0 || number >= entry.Replacements.Count)
+            IReadOnlyList<string> row;
+            if (writeSource)
             {
-                continue;
+                row = entry.Source;
+            }
+            else
+            {
+                if (number < 0 || number >= entry.Replacements.Count)
+                {
+                    continue;
+                }
+
+                row = entry.Replacements[number];
             }
 
-            var row = entry.Replacements[number];
             var hit = hits[pair.Span];
             var count = Math.Min(row.Count, hit.ByteStart.Length);
             for (var slot = 0; slot < count; slot++)
@@ -126,7 +135,8 @@ internal static class Engine
                     continue;
                 }
 
-                replacements.Add(new Replacement(hit.ByteStart[slot], hit.ByteLength[slot], decoded.Encoding.GetBytes(ToNfc(row[slot])), slot));
+                var text = writeSource ? row[slot] : ToNfc(row[slot]);
+                replacements.Add(new Replacement(hit.ByteStart[slot], hit.ByteLength[slot], decoded.Encoding.GetBytes(text), slot));
             }
             written[entryIndex] = pair;
         }
@@ -145,7 +155,11 @@ internal static class Engine
             var hit = hits[pair.Span];
             var oldSource = entry.Source;
             entry.Before = hit.Before.ToList();
-            entry.Source = hit.Source.ToList();
+            if (!writeSource)
+            {
+                entry.Source = hit.Source.ToList();
+            }
+
             entry.After = hit.After.ToList();
             entry.ByteStart = hit.ByteStart.ToList();
             entry.ByteLength = hit.ByteLength.ToList();
@@ -157,7 +171,13 @@ internal static class Engine
             if (Same(oldSource, hit.Source))
             {
                 entry.Status = "exact";
-                entry.PreviousSource = hit.Source.Select(_ => "").ToList();
+                var length = writeSource ? oldSource.Count : hit.Source.Length;
+                entry.PreviousSource = Enumerable.Repeat("", length).ToList();
+            }
+            else if (writeSource)
+            {
+                entry.Status = "revised";
+                entry.PreviousSource = PreviousFromFile(oldSource, hit.Source);
             }
             else
             {
@@ -170,7 +190,10 @@ internal static class Engine
 
         catalog.ToolVersion = ToolInfo.Version;
         catalog.SourceNames = SourceNames(compiled);
-        catalog.Used = number;
+        if (!writeSource)
+        {
+            catalog.Used = number;
+        }
         catalog.Encoding = decoded.EncodingName;
         catalog.Bom = decoded.Bom;
         catalog.File = StorePath(textPath);
@@ -245,6 +268,18 @@ internal static class Engine
         {
             var old = i < oldSource.Count ? oldSource[i] : "";
             previous.Add(string.Equals(old, newSource[i], StringComparison.Ordinal) ? "" : old);
+        }
+
+        return previous;
+    }
+
+    private static List<string> PreviousFromFile(IReadOnlyList<string> source, IReadOnlyList<string> fileSource)
+    {
+        var previous = new List<string>(source.Count);
+        for (var i = 0; i < source.Count; i++)
+        {
+            var file = i < fileSource.Count ? fileSource[i] : "";
+            previous.Add(string.Equals(source[i], file, StringComparison.Ordinal) ? "" : file);
         }
 
         return previous;
