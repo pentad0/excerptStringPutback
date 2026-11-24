@@ -70,7 +70,7 @@ public static class Cli
     private static void Extract(string[] args, TextWriter stderr)
     {
         var text = Text.Current;
-        var (flags, positionals) = Parse(args, "-encoding", "-pattern", "-pattern-file", "-o", "-disable");
+        var (flags, _, positionals) = Parse(args, ["-encoding", "-pattern", "-pattern-file", "-o", "-disable"]);
         if (positionals.Count != 1 || !flags.ContainsKey("-o"))
         {
             throw new UsageException(text.MissingArguments);
@@ -100,10 +100,16 @@ public static class Cli
     private static void Write(string[] args, TextWriter stderr)
     {
         var text = Text.Current;
-        var (flags, positionals) = Parse(args, "-number", "-o", "-json-out", "-disable");
+        var (flags, switches, positionals) = Parse(args, ["-number", "-o", "-json-out", "-disable"], ["-source"]);
         if (positionals.Count != 2 || !flags.ContainsKey("-o"))
         {
             throw new UsageException(text.MissingArguments);
+        }
+
+        var writeSource = switches.Contains("-source");
+        if (writeSource && flags.ContainsKey("-number"))
+        {
+            throw new UsageException(text.SourceChoice);
         }
 
         var catalogPath = positionals[0];
@@ -116,23 +122,26 @@ public static class Cli
         }
 
         var catalog = CatalogJson.Read(catalogPath);
-        int number;
-        if (flags.TryGetValue("-number", out var numberText))
+        int number = 0;
+        if (!writeSource)
         {
-            if (!int.TryParse(numberText, NumberStyles.None, CultureInfo.InvariantCulture, out number) || number < 0)
+            if (flags.TryGetValue("-number", out var numberText))
             {
-                throw new ToolException(text.NumberRange);
+                if (!int.TryParse(numberText, NumberStyles.None, CultureInfo.InvariantCulture, out number) || number < 0)
+                {
+                    throw new ToolException(text.NumberRange);
+                }
             }
-        }
-        else
-        {
-            number = catalog.Used;
+            else
+            {
+                number = catalog.Used;
+            }
         }
 
         var disabled = flags.TryGetValue("-disable", out var disabledText)
             ? ToolInfo.ParseDisable(disabledText)
             : new HashSet<string>(StringComparer.Ordinal);
-        var output = Engine.Write(catalog, textPath, number, disabled, stderr);
+        var output = Engine.Write(catalog, textPath, number, disabled, stderr, writeSource);
         TextCodec.WriteBytes(textOut, output);
         CatalogJson.Write(jsonOut, catalog);
         var unmatched = catalog.Entries.Count(entry => entry.Status == "unmatched");
@@ -197,12 +206,17 @@ public static class Cli
         return (language, rest.ToArray());
     }
 
-    private static (Dictionary<string, string> Flags, List<string> Positionals) Parse(string[] args, params string[] allowed)
+    private static (Dictionary<string, string> Flags, HashSet<string> Switches, List<string> Positionals) Parse(
+        string[] args,
+        string[] allowed,
+        string[]? switches = null)
     {
         var text = Text.Current;
         var flags = new Dictionary<string, string>(StringComparer.Ordinal);
+        var foundSwitches = new HashSet<string>(StringComparer.Ordinal);
         var rest = new List<string>();
         var allowedSet = new HashSet<string>(allowed, StringComparer.Ordinal);
+        var switchSet = new HashSet<string>(switches ?? [], StringComparer.Ordinal);
         for (var i = 0; i < args.Length; i++)
         {
             var arg = args[i];
@@ -215,14 +229,31 @@ public static class Cli
             if (arg.StartsWith('-') && arg.Length > 1)
             {
                 var name = arg;
-                string value;
+                string? value = null;
                 var equals = arg.IndexOf('=');
-                if (equals > 0)
+                var hasValue = equals > 0;
+                if (hasValue)
                 {
                     name = arg[..equals];
                     value = arg[(equals + 1)..];
                 }
-                else
+
+                if (switchSet.Contains(name))
+                {
+                    if (hasValue)
+                    {
+                        throw new UsageException(text.SourceNoValue);
+                    }
+
+                    if (!foundSwitches.Add(name))
+                    {
+                        throw new UsageException(text.DuplicateArgument);
+                    }
+
+                    continue;
+                }
+
+                if (!hasValue)
                 {
                     if (i + 1 >= args.Length)
                     {
@@ -237,7 +268,7 @@ public static class Cli
                     throw new UsageException(text.UnknownArgument);
                 }
 
-                if (!flags.TryAdd(name, value))
+                if (!flags.TryAdd(name, value!))
                 {
                     throw new UsageException(text.DuplicateArgument);
                 }
@@ -248,7 +279,7 @@ public static class Cli
             rest.Add(arg);
         }
 
-        return (flags, rest);
+        return (flags, foundSwitches, rest);
     }
 
     private static bool IsSamePath(string left, string right)
