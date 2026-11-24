@@ -80,14 +80,14 @@ internal static class Engine
             usedSpans.Add(span);
         }
 
-        if (active.Contains("key") && catalog.KeyNames.Count > 0 && keyNamesOk)
-        {
-            PairKey(catalog, compiled, hits, Pair);
-        }
-
         if (active.Contains("sourceByte"))
         {
             PairOffset(catalog, decoded, hits, pairs, usedSpans, Pair);
+        }
+
+        if (active.Contains("key") && catalog.KeyNames.Count > 0 && keyNamesOk)
+        {
+            PairKey(catalog, compiled, hits, pairs, usedSpans, Pair);
         }
 
         if (active.Contains("exact"))
@@ -160,11 +160,18 @@ internal static class Engine
         return Splice(decoded.Bytes, replacements);
     }
 
-    private static void PairKey(Catalog catalog, Compiled compiled, IReadOnlyList<Hit> hits, Action<int, int, string> pair)
+    private static void PairKey(
+        Catalog catalog,
+        Compiled compiled,
+        IReadOnlyList<Hit> hits,
+        Dictionary<int, (int Span, string Method)> pairs,
+        HashSet<int> usedSpans,
+        Action<int, int, string> pair)
     {
         var entries = Group(catalog.Entries.Select((entry, index) => (index, Key: entry.Key.ToArray()))
-            .Where(item => item.Key.Length == catalog.KeyNames.Count));
-        var spans = Group(hits.Select((hit, index) => (index, Key: KeyInCatalogOrder(catalog, compiled, hit).ToArray())));
+            .Where(item => item.Key.Length == catalog.KeyNames.Count && !pairs.ContainsKey(item.index)));
+        var spans = Group(hits.Select((hit, index) => (index, Key: KeyInCatalogOrder(catalog, compiled, hit).ToArray()))
+            .Where(item => !usedSpans.Contains(item.index)));
         foreach (var (key, entryIndexes) in entries)
         {
             if (entryIndexes.Count == 1 && spans.TryGetValue(key, out var spanIndexes) && spanIndexes.Count == 1)
