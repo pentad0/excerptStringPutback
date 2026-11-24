@@ -87,9 +87,9 @@ internal static class ToolInfo
 {
     public const string ProgramName = "excerptStringPutback";
 
-    public const string Version = "1.3.0";
+    public const string Version = "1.2.0";
 
-    public const int FormatVersion = 4;
+    public const int FormatVersion = 3;
 
     public static readonly string[] Methods = ["sourceByte", "key", "exact", "context", "align", "revised"];
 
