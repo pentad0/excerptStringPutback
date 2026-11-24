@@ -259,7 +259,7 @@ JSON の形や、フィールドの意味、配列の並び、番号の数え方
 
 `replacements` の `"やあ\\n世界"` は、テキスト内ではバックスラッシュと `n` の2文字です。本物の改行を含む `source` は、JSON 上では `\n` または `\r` です。NUL などは `\u0000` のようにエスケープします。引用符の内側に、エスケープしていない改行は置けません。
 
-`source` は原文のまま比較します。書き込む変更後文字列だけを NFC にします。周囲のバイトは、符号化し直しても同じになる範囲ではそのまま残します。
+`source` は原文のまま比較します。書き込む変更後文字列だけを NFC にします。`-source` で書き込む原文は NFC にしません。周囲のバイトは、符号化し直しても同じになる範囲ではそのまま残します。
 
 ### 3.3 変更後文字列の番号
 
@@ -272,6 +272,7 @@ JSON の形や、フィールドの意味、配列の並び、番号の数え方
 - 書かなかった項目の `replacements` は残します。
 - 実行した番号は、終わったときに `used` へ上書きします。
 - `-number` を省略したときは `used` を使います。`used` が無いときは 0 です。
+- `-source` を付けたときは、この番号を使わない。各項目の `source` を書き、`used` は変えない。`-number` と同時に指定したときはエラーです。`-source` は値を取りません。
 
 途中の変更後文字列を消すときは、全項目の同じ番号と、`replacementNames` の同じ位置をまとめて消します。番号は外側の配列の位置そのものなので、途中を消すと後ろの番号が繰り上がります。
 
@@ -294,7 +295,7 @@ JSON の形や、フィールドの意味、配列の並び、番号の数え方
 
 ## 5. 書き戻し
 
-`putback` は、カタログの `pattern` を今のテキストファイルに掛け直し、既存の項目と対応づけます。テキストファイルを `-o` へ書き、カタログの対応づけ結果を更新します。`-o` と入力のテキストファイルが同じパスのときは、そのファイルを更新します。別のパスのときは、元のテキストファイルは変更しません。
+`putback` は、カタログの `pattern` を今のテキストファイルに掛け直し、既存の項目と対応づけます。テキストファイルを `-o` へ書き、カタログの対応づけ結果を更新します。`-o` と入力のテキストファイルが同じパスのときは、そのファイルを更新します。別のパスのときは、元のテキストファイルは変更しません。書く文字列は、`-source` のときは各項目の `source`、それ以外は選んだ番号の変更後文字列です。
 
 読む符号化はカタログの `encoding` を指定として使い、ファイル側に BOM があれば、その回の読み込みと出力だけ BOM を優先します。カタログの `encoding`、`bom`、`file` は変えません。
 
@@ -342,11 +343,13 @@ JSON の形や、フィールドの意味、配列の並び、番号の数え方
 
 ### 5.6 実際に書くとき
 
-対応が決まった項目でも、選んだ番号の行が `replacements` に無いときは、テキストファイルは変えません。その項目は `status` が `unmatched`、`matchedBy` が空です。
+番号で書き戻すとき、対応が決まった項目でも、選んだ番号の行が `replacements` に無いときは、テキストファイルは変えません。その項目は `status` が `unmatched`、`matchedBy` が空です。
 
-選んだ番号の行がある項目は、その行に書いてある位置だけを差し替えます。空文字も含めます。`sourceByteStart` が `-1` の位置は残します。差し替えるのは、その回に読み直した原文のバイト範囲です。一致の外側と、原文と原文のあいだは残します。差し替えは開始位置、長さ、配列の位置の順に組み立て、結果を読んだときと同じ符号化と BOM で出力します。
+選んだ番号の行がある項目は、その行に書いてある位置だけを差し替えます。空文字も含めます。`sourceByteStart` が `-1` の位置は残します。差し替えるのは、その回に読み直した原文のバイト範囲です。一致の外側と、原文と原文のあいだは残します。差し替えは開始位置、長さ、配列の位置の順に組み立て、結果を読んだときと同じ符号化と BOM で出力します。変更後文字列は NFC にしてから符号化します。
 
-書き戻しで更新するのは、先頭の `used` と `methods`、全項目の `status` と `matchedBy` だけです。`methods` は実行順へ並べ替えます。`-disable` で外した方式は消しません。`toolVersion`、`encoding`、`bom`、`file`、`sourceNames`、`key`、`before`、`source`、`after`、`sourceByteStart`、`sourceByteLength` は変えません。`program`、`fileVersion`、`note`、`pattern`、`keyNames`、`replacementNames`、`replacements` も変えません。
+`-source` のときは、番号の行の代わりに各項目の `source` を差し込みます。空文字も含めます。`sourceByteStart` が `-1` の位置は残します。`source` が一致の位置より短いときは、書いてある位置だけを書きます。長い分は書きません。NFC にはせず、原文のまま符号化します。`replacements` は残します。`used` は変えません。
+
+書き戻しで更新するのは、先頭の `used` と `methods`、全項目の `status` と `matchedBy` だけです。`-source` のときは `used` を変えません。`methods` は実行順へ並べ替えます。`-disable` で外した方式は消しません。`toolVersion`、`encoding`、`bom`、`file`、`sourceNames`、`key`、`before`、`source`、`after`、`sourceByteStart`、`sourceByteLength` は変えません。`program`、`fileVersion`、`note`、`pattern`、`keyNames`、`replacementNames`、`replacements` も変えません。
 
 書き込んだ項目は次のようにします。
 
@@ -366,6 +369,7 @@ JSON の形や、フィールドの意味、配列の並び、番号の数え方
 excerptStringPutback excerpt [-language en|ja] -encoding <符号化> -pattern <正規表現> [-disable <方式>] -o <出力.json> <テキストファイル>
 excerptStringPutback excerpt [-language en|ja] -encoding <符号化> -pattern-file <ファイル> [-disable <方式>] -o <出力.json> <テキストファイル>
 excerptStringPutback putback [-language en|ja] -number <番号> -o <出力ファイル> [-json-out <JSON>] [-disable <方式>] <カタログ.json> <テキストファイル>
+excerptStringPutback putback [-language en|ja] -source -o <出力ファイル> [-json-out <JSON>] [-disable <方式>] <カタログ.json> <テキストファイル>
 ```
 
 | 終了コード | 意味 |
@@ -376,11 +380,11 @@ excerptStringPutback putback [-language en|ja] -number <番号> -o <出力ファ
 
 標準出力には結果のファイルを書きません。経過と警告は標準エラーです。エラー、警告、使い方などのメッセージは、`-language` で英語（`en`）と日本語（`ja`）に切り替えます。省略したときは OS の表示言語に合わせます。表示言語が日本語ならメッセージは日本語、英語なら英語、それ以外は英語です。`-pattern-file` は先頭の UTF-8 BOM を外し、末尾の改行を1つだけ除いてパターンにします。
 
-`-disable` はカンマ区切りです。未知の方式名はエラーです。
+`-disable` はカンマ区切りです。未知の方式名はエラーです。`-source` は値を取りません。`-number` と同時に指定するとエラーです。
 
 ## 7. 人が変えてよいフィールド
 
-人が変えてよいのは、原則として `replacementNames`、`fileVersion`、`note`、各項目の `replacements` です。`fileVersion` は、その JSON がどの版かを人が見分けるための文字列です。`note` には JSON の値を自由に書けます。このツールは `note` の中身を読まず、テキストへも書き込みません。`source`、`key`、`before`、`after`、`sourceByteStart`、`sourceByteLength`、`pattern`、符号化は、書き戻しの対応づけに使います。書き戻しでは変えません。
+人が変えてよいのは、原則として `replacementNames`、`fileVersion`、`note`、各項目の `replacements` です。`fileVersion` は、その JSON がどの版かを人が見分けるための文字列です。`note` には JSON の値を自由に書けます。このツールは `note` の中身を読まず、テキストへも書き込みません。`source`、`key`、`before`、`after`、`sourceByteStart`、`sourceByteLength`、`pattern`、符号化は、書き戻しの対応づけに使います。書き戻しでは変えません。`source` を人が書き換えると、対応づけに使う文字列と、`-source` が書き込む文字列の両方が変わります。
 
 JSON は UTF-8（BOM なし）で保存します。
 

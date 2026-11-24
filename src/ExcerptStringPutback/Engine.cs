@@ -46,7 +46,7 @@ internal static class Engine
         return catalog;
     }
 
-    public static byte[] Write(Catalog catalog, string textPath, int number, IReadOnlySet<string> disabled, TextWriter stderr)
+    public static byte[] Write(Catalog catalog, string textPath, int number, IReadOnlySet<string> disabled, TextWriter stderr, bool writeSource)
     {
         if (string.IsNullOrEmpty(catalog.Pattern))
         {
@@ -110,12 +110,21 @@ internal static class Engine
         foreach (var (entryIndex, pair) in pairs)
         {
             var entry = catalog.Entries[entryIndex];
-            if (number < 0 || number >= entry.Replacements.Count)
+            IReadOnlyList<string> row;
+            if (writeSource)
             {
-                continue;
+                row = entry.Source;
+            }
+            else
+            {
+                if (number < 0 || number >= entry.Replacements.Count)
+                {
+                    continue;
+                }
+
+                row = entry.Replacements[number];
             }
 
-            var row = entry.Replacements[number];
             var hit = hits[pair.Span];
             var count = Math.Min(row.Count, hit.ByteStart.Length);
             for (var slot = 0; slot < count; slot++)
@@ -125,7 +134,8 @@ internal static class Engine
                     continue;
                 }
 
-                replacements.Add(new Replacement(hit.ByteStart[slot], hit.ByteLength[slot], decoded.Encoding.GetBytes(ToNfc(row[slot])), slot));
+                var text = writeSource ? row[slot] : ToNfc(row[slot]);
+                replacements.Add(new Replacement(hit.ByteStart[slot], hit.ByteLength[slot], decoded.Encoding.GetBytes(text), slot));
             }
             written[entryIndex] = pair;
         }
@@ -145,7 +155,11 @@ internal static class Engine
             entry.MatchedBy = pair.Method;
         }
 
-        catalog.Used = number;
+        if (!writeSource)
+        {
+            catalog.Used = number;
+        }
+
         return Splice(decoded.Bytes, replacements);
     }
 

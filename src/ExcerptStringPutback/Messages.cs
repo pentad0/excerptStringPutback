@@ -25,6 +25,7 @@ internal sealed class Messages
               excerptStringPutback excerpt -encoding <encoding> -pattern <regex> -o <out.json> <text file>
               excerptStringPutback excerpt -encoding <encoding> -pattern-file <file> -o <out.json> <text file>
               excerptStringPutback putback -number <n> -o <outfile> [-json-out <json>] [-disable <methods>] <catalog.json> <text file>
+              excerptStringPutback putback -source -o <outfile> [-json-out <json>] [-disable <methods>] <catalog.json> <text file>
               excerptStringPutback version
               -language en|ja    Switch messages between English and Japanese. The default follows the OS language when it is English or Japanese, and is English otherwise.
             """,
@@ -39,6 +40,8 @@ internal sealed class Messages
         WroteWithUnmatched = "Wrote {0} entries. {1} entries were unmatched.",
         JsonPathIsText = "The JSON output path is the same as a text file.",
         NumberRange = "-number must be an integer of 0 or more.",
+        SourceChoice = "-number and -source cannot be used together.",
+        SourceNoValue = "-source does not take a value.",
         Utf32Bom = "UTF-32 BOM is not supported.",
         BomOverridesEncoding = "Warning: -encoding is {0}, but the BOM selects {1}.",
         EncodingRequired = "A file without a BOM requires -encoding.",
@@ -82,6 +85,7 @@ internal sealed class Messages
               excerptStringPutback excerpt -encoding <符号化> -pattern <正規表現> -o <出力.json> <テキストファイル>
               excerptStringPutback excerpt -encoding <符号化> -pattern-file <ファイル> -o <出力.json> <テキストファイル>
               excerptStringPutback putback -number <番号> -o <出力ファイル> [-json-out <JSON>] [-disable <方式>] <カタログ.json> <テキストファイル>
+              excerptStringPutback putback -source -o <出力ファイル> [-json-out <JSON>] [-disable <方式>] <カタログ.json> <テキストファイル>
               excerptStringPutback version
               -language en|ja    メッセージを英語か日本語に切り替える。省略時は OS の表示言語。日本語と英語以外は英語
             """,
@@ -96,6 +100,8 @@ internal sealed class Messages
         WroteWithUnmatched = "{0} 件を書き戻しました。対応しなかった項目は {1} 件です。",
         JsonPathIsText = "JSON の出力先がテキストファイルと同じです。",
         NumberRange = "-number は 0 以上の整数です。",
+        SourceChoice = "-number と -source は同時に指定できません。",
+        SourceNoValue = "-source に値は付けません。",
         Utf32Bom = "UTF-32 の BOM は扱えません。",
         BomOverridesEncoding = "警告: -encoding は {0} ですが、BOM を優先して {1} として読みます。",
         EncodingRequired = "BOM が無いファイルには -encoding が必要です。",
@@ -155,6 +161,10 @@ internal sealed class Messages
     public required string JsonPathIsText { get; init; }
 
     public required string NumberRange { get; init; }
+
+    public required string SourceChoice { get; init; }
+
+    public required string SourceNoValue { get; init; }
 
     public required string Utf32Bom { get; init; }
 
