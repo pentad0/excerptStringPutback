@@ -91,7 +91,7 @@ internal static class ToolInfo
 
     public const int FormatVersion = 3;
 
-    public static readonly string[] Methods = ["key", "sourceByte", "exact", "context", "align", "revised"];
+    public static readonly string[] Methods = ["sourceByte", "key", "exact", "context", "align", "revised"];
 
     public static List<string> Order(IEnumerable<string> names)
     {

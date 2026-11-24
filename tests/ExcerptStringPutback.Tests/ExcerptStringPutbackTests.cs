@@ -222,7 +222,7 @@ public class ExcerptStringPutbackTests
         var raw = CatalogJson.ToJson(catalog);
         Assert.Contains("  \"sourceNames\": [\n    \"\"\n  ],\n", raw, StringComparison.Ordinal);
         Assert.Contains("  \"replacementNames\": [\n    \"changed\"\n  ],\n", raw, StringComparison.Ordinal);
-        Assert.Contains("  \"methods\": [\n    \"key\",\n    \"sourceByte\",\n    \"exact\",\n    \"context\",\n    \"align\",\n    \"revised\"\n  ]\n}\n", raw, StringComparison.Ordinal);
+        Assert.Contains("  \"methods\": [\n    \"sourceByte\",\n    \"key\",\n    \"exact\",\n    \"context\",\n    \"align\",\n    \"revised\"\n  ]\n}\n", raw, StringComparison.Ordinal);
         Assert.True(raw.IndexOf("\"entries\"", StringComparison.Ordinal) < raw.IndexOf("\"used\"", StringComparison.Ordinal));
         Assert.True(raw.IndexOf("\"status\"", StringComparison.Ordinal) < raw.LastIndexOf("\"matchedBy\"", StringComparison.Ordinal));
         Assert.Contains("      \"key\": [],\n", raw, StringComparison.Ordinal);
@@ -285,7 +285,7 @@ public class ExcerptStringPutbackTests
         Assert.Equal("1.2.0", updated.ToolVersion);
         Assert.Equal(new[] { "changed", "常体" }, updated.ReplacementNames);
         Assert.Equal("exact", updated.Entries[0].Status);
-        Assert.Equal("key", updated.Entries[0].MatchedBy);
+        Assert.Equal("sourceByte", updated.Entries[0].MatchedBy);
         Assert.Equal(new[] { "Hello" }, updated.Entries[0].Source);
     }
 
@@ -390,7 +390,7 @@ public class ExcerptStringPutbackTests
         kept.Entries[0].Replacements[0][0] = "";
         var cleared = Apply(kept, "MSG=Hello\n");
         Assert.Equal("MSG=\n", Encoding.UTF8.GetString(cleared.Bytes));
-        Assert.Equal("key", cleared.Catalog.Entries[0].MatchedBy);
+        Assert.Equal("sourceByte", cleared.Catalog.Entries[0].MatchedBy);
         Assert.Equal(new[] { "Hello" }, cleared.Catalog.Entries[0].Source);
 
         catalog.Entries[0].Replacements = new List<List<string>> { new() { "one" }, new() { "two" } };
