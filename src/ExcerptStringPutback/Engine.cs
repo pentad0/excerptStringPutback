@@ -35,7 +35,6 @@ internal static class Engine
                 Before = hit.Before.ToList(),
                 Source = hit.Source.ToList(),
                 After = hit.After.ToList(),
-                PreviousSource = hit.Source.Select(_ => "").ToList(),
                 Replacements = [hit.Source.ToList()],
                 ByteStart = hit.ByteStart.ToList(),
                 ByteLength = hit.ByteLength.ToList(),
@@ -86,7 +85,7 @@ internal static class Engine
             PairKey(catalog, compiled, hits, Pair);
         }
 
-        if (active.Contains("offset"))
+        if (active.Contains("sourceByte"))
         {
             PairOffset(catalog, decoded, hits, pairs, usedSpans, Pair);
         }
@@ -148,55 +147,19 @@ internal static class Engine
             {
                 entry.Status = "unmatched";
                 entry.MatchedBy = "";
-                entry.PreviousSource = entry.Source.Select(_ => "").ToList();
                 continue;
             }
 
             var hit = hits[pair.Span];
-            var oldSource = entry.Source;
-            entry.Before = hit.Before.ToList();
-            if (!writeSource)
-            {
-                entry.Source = hit.Source.ToList();
-            }
-
-            entry.After = hit.After.ToList();
-            entry.ByteStart = hit.ByteStart.ToList();
-            entry.ByteLength = hit.ByteLength.ToList();
-            if (keyNamesOk)
-            {
-                entry.Key = KeyInCatalogOrder(catalog, compiled, hit);
-            }
-
-            if (Same(oldSource, hit.Source))
-            {
-                entry.Status = "exact";
-                var length = writeSource ? oldSource.Count : hit.Source.Length;
-                entry.PreviousSource = Enumerable.Repeat("", length).ToList();
-            }
-            else if (writeSource)
-            {
-                entry.Status = "revised";
-                entry.PreviousSource = PreviousFromFile(oldSource, hit.Source);
-            }
-            else
-            {
-                entry.Status = "revised";
-                entry.PreviousSource = PreviousOf(oldSource, hit.Source);
-            }
-
+            entry.Status = Same(entry.Source, hit.Source) ? "exact" : "revised";
             entry.MatchedBy = pair.Method;
         }
 
-        catalog.ToolVersion = ToolInfo.Version;
-        catalog.SourceNames = SourceNames(compiled);
         if (!writeSource)
         {
             catalog.Used = number;
         }
-        catalog.Encoding = decoded.EncodingName;
-        catalog.Bom = decoded.Bom;
-        catalog.File = StorePath(textPath);
+
         return Splice(decoded.Bytes, replacements);
     }
 
@@ -261,30 +224,6 @@ internal static class Engine
         return true;
     }
 
-    private static List<string> PreviousOf(IReadOnlyList<string> oldSource, IReadOnlyList<string> newSource)
-    {
-        var previous = new List<string>(newSource.Count);
-        for (var i = 0; i < newSource.Count; i++)
-        {
-            var old = i < oldSource.Count ? oldSource[i] : "";
-            previous.Add(string.Equals(old, newSource[i], StringComparison.Ordinal) ? "" : old);
-        }
-
-        return previous;
-    }
-
-    private static List<string> PreviousFromFile(IReadOnlyList<string> source, IReadOnlyList<string> fileSource)
-    {
-        var previous = new List<string>(source.Count);
-        for (var i = 0; i < source.Count; i++)
-        {
-            var file = i < fileSource.Count ? fileSource[i] : "";
-            previous.Add(string.Equals(source[i], file, StringComparison.Ordinal) ? "" : file);
-        }
-
-        return previous;
-    }
-
     private static List<string> KeyInCatalogOrder(Catalog catalog, Compiled compiled, Hit hit)
     {
         var map = new Dictionary<string, string>(StringComparer.Ordinal);
@@ -328,7 +267,7 @@ internal static class Engine
 
             if (count == 1)
             {
-                pair(i, matched, "offset");
+                pair(i, matched, "sourceByte");
             }
         }
     }
