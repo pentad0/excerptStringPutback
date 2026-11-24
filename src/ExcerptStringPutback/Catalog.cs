@@ -51,7 +51,7 @@ internal sealed class Catalog
 
     public List<string> ReplacementNames { get; set; } = new();
 
-    public int Used { get; set; }
+    public UsedValue Used { get; set; }
 
     public List<string> Methods { get; set; } = new();
 
@@ -61,6 +61,26 @@ internal sealed class Catalog
 internal sealed class NoteValue
 {
     public string Json { get; set; } = "\"\"";
+}
+
+internal readonly record struct UsedValue
+{
+    public static UsedValue Source { get; } = new(true, 0);
+
+    public bool IsSource { get; }
+
+    public int Number { get; }
+
+    private UsedValue(bool isSource, int number)
+    {
+        IsSource = isSource;
+        Number = number;
+    }
+
+    public static implicit operator UsedValue(int number)
+    {
+        return new UsedValue(false, number);
+    }
 }
 
 internal static class ToolInfo
@@ -189,17 +209,12 @@ internal static class CatalogJson
                 KeyNames = OptionalStrings(root, "keyNames"),
                 SourceNames = OptionalStrings(root, "sourceNames"),
                 ReplacementNames = OptionalStrings(root, "replacementNames"),
-                Used = OptionalInt(root, "used"),
+                Used = OptionalUsed(root),
                 Methods = root.TryGetProperty("methods", out var methods)
                     ? ToolInfo.Order(RequiredStrings(methods, "methods"))
                     : ToolInfo.Methods.ToList(),
                 Entries = ReadEntries(root),
             };
-            if (catalog.Used < 0)
-            {
-                throw new ToolException(Text.Current.UsedInvalid);
-            }
-
             return catalog;
         }
     }
@@ -248,7 +263,14 @@ internal static class CatalogJson
         }
 
         builder.Append(",\n");
-        IntProp(builder, 1, "used", catalog.Used);
+        if (catalog.Used.IsSource)
+        {
+            StringProp(builder, 1, "used", "source");
+        }
+        else
+        {
+            IntProp(builder, 1, "used", catalog.Used.Number);
+        }
         StringsProp(builder, 1, "methods", catalog.Methods, last: true);
         builder.Append("}\n");
         return builder.ToString();
@@ -341,11 +363,21 @@ internal static class CatalogJson
         return element.GetBoolean();
     }
 
-    private static int OptionalInt(JsonElement root, string name)
+    private static UsedValue OptionalUsed(JsonElement root)
     {
-        if (!root.TryGetProperty(name, out var element) || element.ValueKind == JsonValueKind.Null)
+        if (!root.TryGetProperty("used", out var element) || element.ValueKind == JsonValueKind.Null)
         {
             return 0;
+        }
+
+        if (element.ValueKind == JsonValueKind.String)
+        {
+            if (element.GetString() == "source")
+            {
+                return UsedValue.Source;
+            }
+
+            throw new ToolException(Text.Current.UsedInvalid);
         }
 
         if (element.ValueKind != JsonValueKind.Number || !element.TryGetInt32(out var value) || value < 0)

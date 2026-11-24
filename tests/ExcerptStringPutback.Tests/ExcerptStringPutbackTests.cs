@@ -437,13 +437,13 @@ public class ExcerptStringPutbackTests
         Assert.Equal(new[] { 3, 9 }, entry.ByteStart);
         Assert.Equal(new[] { 5, 5 }, entry.ByteLength);
         Assert.Equal(new[] { "こんにちは", "世界" }, Assert.Single(entry.Replacements));
-        Assert.Equal(1, output.Catalog.Used);
+        Assert.Equal(UsedValue.Source, output.Catalog.Used);
 
         catalog.Entries[0].Source = new List<string> { "やあ" };
         var shorter = Apply(catalog, "15\tHello\tWorld", source: true);
         Assert.Equal("15\tやあ\tWorld", Encoding.UTF8.GetString(shorter.Bytes));
         Assert.Equal(new[] { "やあ" }, shorter.Catalog.Entries[0].Source);
-        Assert.Equal(1, shorter.Catalog.Used);
+        Assert.Equal(UsedValue.Source, shorter.Catalog.Used);
 
         var longer = Extract("15\tHello\tWorld", "(?m)^(?Key<id>\\d+)\t(?Source<title>[^\\t]*)\t(?Source<body>.*)");
         longer.Entries[0].Source.Add("extra");
@@ -461,7 +461,7 @@ public class ExcerptStringPutbackTests
         Assert.Equal(Encoding.UTF8.GetBytes(decomposed), raw.Bytes);
         Assert.Equal(new[] { decomposed }, raw.Catalog.Entries[0].Source);
         Assert.Equal(new[] { "KEEP" }, Assert.Single(raw.Catalog.Entries[0].Replacements));
-        Assert.Equal(1, raw.Catalog.Used);
+        Assert.Equal(UsedValue.Source, raw.Catalog.Used);
 
         var absent = Extract("B", "(?Source<a>A)?(?Source<b>B)");
         absent.Entries[0].Source[0] = "GONE";
@@ -486,7 +486,7 @@ public class ExcerptStringPutbackTests
         Assert.Equal("exact", unchanged.Catalog.Entries[0].Status);
         Assert.Equal(new[] { "Hello" }, unchanged.Catalog.Entries[0].Source);
         Assert.Equal(new[] { "Bye" }, Assert.Single(unchanged.Catalog.Entries[0].Replacements));
-        Assert.Equal(1, unchanged.Catalog.Used);
+        Assert.Equal(UsedValue.Source, unchanged.Catalog.Used);
     }
 
     [Fact]
@@ -742,7 +742,7 @@ public class ExcerptStringPutbackTests
     }
 
     [Fact]
-    public void Source_flag_rejects_a_number_and_leaves_used_unchanged()
+    public void Source_flag_records_source_in_used()
     {
         using var dir = Temp();
         var text = Path.Combine(dir, "in.txt");
@@ -779,21 +779,40 @@ public class ExcerptStringPutbackTests
         Assert.Equal("Hello", File.ReadAllText(output));
         Assert.Equal("Hello", File.ReadAllText(text));
         var updated = CatalogJson.Parse(File.ReadAllText(json));
-        Assert.Equal(1, updated.Used);
+        Assert.Equal(UsedValue.Source, updated.Used);
+        Assert.Contains("\"used\": \"source\"", File.ReadAllText(json), StringComparison.Ordinal);
         Assert.Equal("exact", updated.Entries[0].Status);
         Assert.Equal(new[] { "Hello" }, updated.Entries[0].Source);
         Assert.Equal(new[] { "Bye" }, Assert.Single(updated.Entries[0].Replacements));
 
-        File.WriteAllText(text, "Hello");
+        File.WriteAllText(text, "CHANGED");
         Assert.Equal(0, Run("putback", "-o", output, json, text).Code);
         Assert.Equal("Hello", File.ReadAllText(output));
-        Assert.Equal("unmatched", CatalogJson.Parse(File.ReadAllText(json)).Entries[0].Status);
-        Assert.Equal(1, CatalogJson.Parse(File.ReadAllText(json)).Used);
+        Assert.Equal(UsedValue.Source, CatalogJson.Parse(File.ReadAllText(json)).Used);
+        Assert.Equal("revised", CatalogJson.Parse(File.ReadAllText(json)).Entries[0].Status);
 
         File.WriteAllText(text, "Hello");
         Assert.Equal(0, Run("putback", "-number", "0", "-o", output, json, text).Code);
         Assert.Equal("Bye", File.ReadAllText(output));
         Assert.Equal(0, CatalogJson.Parse(File.ReadAllText(json)).Used);
+
+        File.WriteAllText(json, """
+        {"formatVersion":3,"pattern":"(.*)","encoding":"utf-8","used":"source","entries":[{"source":["Hello"],"replacements":[["Bye"]]}]}
+        """);
+        File.WriteAllText(text, "CHANGED");
+        Assert.Equal(0, Run("putback", "-o", output, json, text).Code);
+        Assert.Equal("Hello", File.ReadAllText(output));
+        Assert.Equal(UsedValue.Source, CatalogJson.Parse(File.ReadAllText(json)).Used);
+
+        File.WriteAllText(json, """
+        {"formatVersion":3,"pattern":"(.*)","encoding":"utf-8","used":"other","entries":[]}
+        """);
+        var invalid = Run("putback", "-o", output, json, text);
+        Assert.Equal(1, invalid.Code);
+        Assert.Contains("used が不正", invalid.Stderr);
+        var invalidEn = Run("putback", "-language", "en", "-o", output, json, text);
+        Assert.Equal(1, invalidEn.Code);
+        Assert.Contains("used is invalid.", invalidEn.Stderr);
     }
 
     [Fact]

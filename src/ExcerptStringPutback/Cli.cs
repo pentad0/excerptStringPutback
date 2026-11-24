@@ -132,9 +132,13 @@ public static class Cli
                     throw new ToolException(text.NumberRange);
                 }
             }
+            else if (catalog.Used.IsSource)
+            {
+                writeSource = true;
+            }
             else
             {
-                number = catalog.Used;
+                number = catalog.Used.Number;
             }
         }
 
