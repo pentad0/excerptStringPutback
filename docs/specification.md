@@ -65,7 +65,7 @@ BOM が無いファイルは、自動では判別しません。`-encoding` が�
 
 `(?Source<...>)` が1つも無いときは、一致全体が原文1つです。カタログの `sourceNames` は `[""]` です。項目の `source` はその一致全体を1つ入れた配列、`before` と `after` は `[""]` です。
 
-`sourceNames` と項目の `source` は、配列の同じ位置が対応します。名前を項目へは書きません。その一致で `(?Source<...>)` が参加しなかった位置は、配列の位置をずらさないように残します。その位置の `source`、`before`、`after` は `""`、`byteStart` は `-1`、`byteLength` は `0` です。書き戻しではその位置を書きません。
+`sourceNames` と項目の `source` は、配列の同じ位置が対応します。名前を項目へは書きません。その一致で `(?Source<...>)` が参加しなかった位置は、配列の位置をずらさないように残します。その位置の `source`、`before`、`after` は `""`、`sourceByteStart` は `-1`、`sourceByteLength` は `0` です。書き戻しではその位置を書きません。
 
 `(?Source<名前>...)+` や `*` のように同じグループが繰り返すときは、そのグループの最後の繰り返しだけが残ります。
 
@@ -113,16 +113,17 @@ pattern: (?m)^(?Key<id>\d+)\t(?Source<title>[^\t]*)\t(?Source<body>.*)
 
 未知のフィールドは、ツールが書き出すときに残しません。JSON に足しても、`putback` のあとには消えます。
 
-フィールドは次の2段だけです。`program`、`formatVersion`、`toolVersion`、`fileVersion`、`note`、`pattern`、`keyNames`、`sourceNames`、`replacementNames`、`used`、`methods` は先頭に1つずつです。`program` は JSON の最初のフィールドです。項目の中には繰り返しません。
+フィールドは次の2段だけです。`program` は JSON の最初のフィールドです。項目の中には繰り返しません。書き戻しで更新する項目は、JSON 上でそれぞれのオブジェクトのなるべく後に置きます。先頭では `entries` のあとが `used`、`methods` です。項目では `status`、`matchedBy` が最後です。
 
 ### 3.0 フォーマットバージョン
 
-現在の `formatVersion` は **2** です。この形式を書き出すツールのバージョンは **1.1.0** です。`excerptStringPutback version` でも確認できます。書き出した JSON の `program` には、そのファイルを作成したプログラムの名前が入ります。このツールが作成したときは `excerptStringPutback` です。`toolVersion` には、そのファイルを最後に書いたツールのバージョンが入ります。`fileVersion` は、利用者がこの JSON ファイル自身の版を自由に書く目印です。`note` は、利用者が JSON の値を自由に書く欄です。中身は読みません。ツールは `program` も `toolVersion` も `fileVersion` も `note` も、最新かどうかや書き戻しの判定に使いません。`program` や `toolVersion` や `fileVersion` や `note` が無いファイルも形式 2 として読みます。`formatVersion` 自身が 2 でないファイルは読みません。
+現在の `formatVersion` は **3** です。この形式を書き出すツールのバージョンは **1.2.0** です。`excerptStringPutback version` でも確認できます。書き出した JSON の `program` には、そのファイルを作成したプログラムの名前が入ります。このツールが作成したときは `excerptStringPutback` です。`toolVersion` には、そのファイルを抽出したツールのバージョンが入ります。`fileVersion` は、利用者がこの JSON ファイル自身の版を自由に書く目印です。`note` は、利用者が JSON の値を自由に書く欄です。中身は読みません。ツールは `program` も `toolVersion` も `fileVersion` も `note` も、最新かどうかや書き戻しの判定に使いません。`program` や `toolVersion` や `fileVersion` や `note` が無いファイルも形式 3 として読みます。`formatVersion` 自身が 3 でないファイルは読みません。
 
 | formatVersion | ツール | 内容 |
 | --- | --- | --- |
 | 1 | 1.0.0 | `(?P<名前>...)` をキー、最初の名前の無いキャプチャを原文にした初期形式。このツールは読まない |
-| 2 | 1.1.0 | `(?Key<名前>...)` と `(?Source<名前>...)`。1マッチ1項目のまま `source` と `replacements` を配列にする。番号は `replacementNames` と `replacements` の 0 始まりのインデックス。0 未満は無効 |
+| 2 | 1.1.0 | `(?Key<名前>...)` と `(?Source<名前>...)`。1マッチ1項目のまま `source` と `replacements` を配列にする。番号は `replacementNames` と `replacements` の 0 始まりのインデックス。0 未満は無効。このツールは読まない |
+| 3 | 1.2.0 | `sourceByteStart` と `sourceByteLength`。方式名は `sourceByte`。`previousSource` は無い。書き戻しが更新するのは `used`、`methods`、`status`、`matchedBy` |
 
 JSON の形や、フィールドの意味、配列の並び、番号の数え方を変えるときは、必ず `formatVersion` を 1 増やしてからその形を書き出します。合わせてツールのバージョン番号も上げ、上の表に両方を残します。`formatVersion` を据え置いたまま、既存のファイルの意味が変わる変更をしてはなりません。
 
@@ -131,8 +132,8 @@ JSON の形や、フィールドの意味、配列の並び、番号の数え方
 ```json
 {
   "program": "excerptStringPutback",
-  "formatVersion": 2,
-  "toolVersion": "1.1.0",
+  "formatVersion": 3,
+  "toolVersion": "1.2.0",
   "fileVersion": "3",
   "note": "",
   "file": "data/script.txt",
@@ -149,15 +150,6 @@ JSON の形や、フィールドの意味、配列の並び、番号の数え方
     "ですます",
     "常体"
   ],
-  "used": 1,
-  "methods": [
-    "key",
-    "offset",
-    "exact",
-    "context",
-    "align",
-    "revised"
-  ],
   "entries": [
     {
       "key": [
@@ -172,9 +164,6 @@ JSON の形や、フィールドの意味、配列の並び、番号の数え方
       "after": [
         ""
       ],
-      "previousSource": [
-        ""
-      ],
       "replacements": [
         [
           "こんにちは"
@@ -183,10 +172,10 @@ JSON の形や、フィールドの意味、配列の並び、番号の数え方
           "やあ\\n世界"
         ]
       ],
-      "byteStart": [
+      "sourceByteStart": [
         7
       ],
-      "byteLength": [
+      "sourceByteLength": [
         5
       ],
       "status": "exact",
@@ -205,23 +194,29 @@ JSON の形や、フィールドの意味、配列の並び、番号の数え方
       "after": [
         ""
       ],
-      "previousSource": [
-        ""
-      ],
       "replacements": [
         [
           "はい"
         ]
       ],
-      "byteStart": [
+      "sourceByteStart": [
         39
       ],
-      "byteLength": [
+      "sourceByteLength": [
         3
       ],
       "status": "unmatched",
       "matchedBy": ""
     }
+  ],
+  "used": 1,
+  "methods": [
+    "key",
+    "sourceByte",
+    "exact",
+    "context",
+    "align",
+    "revised"
   ]
 }
 ```
@@ -231,22 +226,22 @@ JSON の形や、フィールドの意味、配列の並び、番号の数え方
 | フィールド | 意味 |
 | --- | --- |
 | `program` | この JSON を作成したプログラムの名前。JSON の最初のフィールド。抽出直後は `excerptStringPutback`。書き戻しでは変えない。空でも受け取る。判定には使わない |
-| `formatVersion` | JSON の形式番号。現在は 2。形式を変えたら 1 増やす |
-| `toolVersion` | この JSON を最後に書いたツールのバージョン。抽出でも書き戻しでも、実行中のツールの番号で上書きする。形式の判定には使わない |
+| `formatVersion` | JSON の形式番号。現在は 3。形式を変えたら 1 増やす |
+| `toolVersion` | この JSON を抽出したツールのバージョン。書き戻しでは変えない。形式の判定には使わない |
 | `fileVersion` | この JSON ファイルの版。利用者が自由に書く文字列で、どのファイルが新しいかの目印にする。抽出直後は `""`。書き戻しでは変えない。中身の形式は問わない |
 | `note` | 利用者が自由に書く欄。JSON の値なら何でもよい。抽出直後は `""`。このツールは中身を読まない。テキストへは書き込まない。入力に書いてあった値は、書き戻した JSON にこのツールの字下げで残す。欄が無いときは空文字を書く |
-| `file` | 直近に読んだテキストファイルのパス。区切りは `/` |
-| `encoding` | `utf-8`、`utf-16le`、`utf-16be` のいずれか |
-| `bom` | そのファイルに BOM があったか |
+| `file` | 抽出したテキストファイルのパス。区切りは `/`。書き戻しでは変えない |
+| `encoding` | `utf-8`、`utf-16le`、`utf-16be` のいずれか。抽出時に決める。書き戻しでは変えない。BOM が無いファイルを読むときの指定になる |
+| `bom` | 抽出したファイルに BOM があったか。書き戻しでは変えない |
 | `pattern` | 抽出と書き戻しの両方で使う正規表現 |
 | `keyNames` | `(?Key<名前>...)` の名前。左から並ぶ。無ければ `[]` |
-| `sourceNames` | `(?Source<名前>...)` の名前。左から並ぶ。原文グループが無いときは `[""]`。項目の `source` と同じ位置が対応する |
+| `sourceNames` | `(?Source<名前>...)` の名前。左から並ぶ。原文グループが無いときは `[""]`。項目の `source` と同じ位置が対応する。書き戻しでは変えない。今のパターンと違うときは警告を出す |
 | `replacementNames` | 変更後文字列の番号の表示名。0番が先頭。抽出直後は `["changed"]`。書き戻しの判定には使わない |
-| `used` | `-number` を省略したときに書き戻す変更後文字列の番号。抽出直後は `0`。書き戻しのあとには、その回の番号で上書きする。欄が無いときは 0 |
-| `methods` | 有効な方式。省略時は6つ全部。`[]` は全部無効 |
 | `entries` | 切り出した文字列。ファイル順 |
+| `used` | `-number` を省略したときに書き戻す変更後文字列の番号。抽出直後は `0`。書き戻しのあとには、その回の番号で上書きする。欄が無いときは 0。`entries` のあと |
+| `methods` | 有効な方式。省略時は6つ全部。`[]` は全部無効。JSON の最後のフィールド |
 
-`methods` に書く順序は保存時に実行順へ並べ直します。実行順は常に `key`、`offset`、`exact`、`context`、`align`、`revised` です。
+`methods` に書く順序は保存時に実行順へ並べ直します。実行順は常に `key`、`sourceByte`、`exact`、`context`、`align`、`revised` です。
 
 ### 3.2 項目のフィールド
 
@@ -256,12 +251,11 @@ JSON の形や、フィールドの意味、配列の並び、番号の数え方
 | `before` | 一致全体のうち、同じ位置の原文の前。`source` と同じ長さ |
 | `source` | 原文の配列。NFC にはしない。`sourceNames` と同じ長さ |
 | `after` | 一致全体のうち、同じ位置の原文の後。`source` と同じ長さ |
-| `previousSource` | `source` と同じ長さ。変わっていない位置は `""`。抽出直後はすべて `""`。いずれかの位置が変わった項目では、変わった位置に変わる前の文字列を入れる |
 | `replacements` | 変更後文字列。外側が番号、内側が `source` と同じ位置。0番が先頭。抽出直後は、その項目の `source` を1行だけ入れた配列 |
-| `byteStart` | 各原文のファイル先頭からのバイト位置。参加しなかった位置は `-1` |
-| `byteLength` | そのバイト長。参加しなかった位置は `0` |
-| `status` | `exact`、`revised`、`unmatched`、または抽出直後の `""` |
-| `matchedBy` | その回の書き戻しで使った方式名。書いていなければ `""` |
+| `sourceByteStart` | 各原文のファイル先頭からのバイト位置。参加しなかった位置は `-1`。抽出時の位置のまま書き戻しでは変えない |
+| `sourceByteLength` | そのバイト長。参加しなかった位置は `0`。書き戻しでは変えない |
+| `status` | `exact`、`revised`、`unmatched`、または抽出直後の `""`。項目の後ろから2番目 |
+| `matchedBy` | その回の書き戻しで使った方式名。書いていなければ `""`。項目の最後のフィールド |
 
 `replacements` の `"やあ\\n世界"` は、テキスト内ではバックスラッシュと `n` の2文字です。本物の改行を含む `source` は、JSON 上では `\n` または `\r` です。NUL などは `\u0000` のようにエスケープします。引用符の内側に、エスケープしていない改行は置けません。
 
@@ -274,7 +268,7 @@ JSON の形や、フィールドの意味、配列の並び、番号の数え方
 - その番号の行が `replacements` に無い項目は、テキストファイルへ書きません。
 - ある行の内側が `source` より短いときは、書いてある位置だけを書き、足りない位置は書きません。
 - 内側の文字列が空の位置は、その原文の範囲を空文字で置き換えます。
-- `byteStart` が `-1` の位置は書きません。
+- `sourceByteStart` が `-1` の位置は書きません。
 - 書かなかった項目の `replacements` は残します。
 - 実行した番号は、終わったときに `used` へ上書きします。
 - `-number` を省略したときは `used` を使います。`used` が無いときは 0 です。
@@ -290,8 +284,8 @@ JSON の形や、フィールドの意味、配列の並び、番号の数え方
 1. ファイルを第1節の規則で読む。
 2. `pattern` をコンパイルし、名前と原文のキャプチャを決める。
 3. ファイルの前から順に、重ならない一致を取る。
-4. 各一致から `key`、`before`、`source`、`after`、`byteStart`、`byteLength` を作る。
-5. `formatVersion` は 2、`program` は `excerptStringPutback`、`toolVersion` は実行中のツールのバージョン、`fileVersion` と `note` は空文字、各項目の `replacements` は `source` を1行だけ入れた配列、`replacementNames` は `["changed"]`、`previousSource` は `source` と同じ長さの空文字、`status` と `matchedBy` は空文字、`used` は 0 にする。`sourceNames` はパターンの原文名、原文グループが無いときは `[""]` にする。
+4. 各一致から `key`、`before`、`source`、`after`、`sourceByteStart`、`sourceByteLength` を作る。
+5. `formatVersion` は 3、`program` は `excerptStringPutback`、`toolVersion` は実行中のツールのバージョン、`fileVersion` と `note` は空文字、各項目の `replacements` は `source` を1行だけ入れた配列、`replacementNames` は `["changed"]`、`status` と `matchedBy` は空文字、`used` は 0 にする。`sourceNames` はパターンの原文名、原文グループが無いときは `[""]` にする。
 6. `methods` は、コマンドで無効にしていない方式を実行順で入れる。
 
 `changed` は、0番の変更後文字列の表示名です。中身は原文の複製で、人が書き換えてから書き戻します。`replacementNames` は対応づけには使いません。原文が空の位置は、変更後文字列も空になります。空の変更後文字列も書き戻し、その位置を空にします。
@@ -302,7 +296,7 @@ JSON の形や、フィールドの意味、配列の並び、番号の数え方
 
 `putback` は、カタログの `pattern` を今のテキストファイルに掛け直し、既存の項目と対応づけます。テキストファイルを `-o` へ書き、カタログの対応づけ結果を更新します。`-o` と入力のテキストファイルが同じパスのときは、そのファイルを更新します。別のパスのときは、元のテキストファイルは変更しません。
 
-読む符号化はカタログの `encoding` を指定として使い、ファイル側に BOM があれば BOM を優先します。出力の符号化と BOM は、そのとき実際に読んだものに合わせ、カタログの `encoding` と `bom` と `file` もそれに更新します。
+読む符号化はカタログの `encoding` を指定として使い、ファイル側に BOM があれば、その回の読み込みと出力だけ BOM を優先します。カタログの `encoding`、`bom`、`file` は変えません。
 
 有効な方式はカタログの `methods` です。`-disable` で外した方式は、その1回だけ使いません。保存する `methods` からは消しません。
 
@@ -316,11 +310,11 @@ JSON の形や、フィールドの意味、配列の並び、番号の数え方
 
 文面が変わっていても、識別子が一致すれば結びます。
 
-### 5.2 `offset`
+### 5.2 `sourceByte`
 
-項目に記録した各位置の `byteStart`、`byteLength`、`source` が、今のファイルの1つの一致の同じ位置とすべて一致し、その範囲が今のファイル上でも同じ文字列に復号できるとき結びます。`byteStart` が `-1` の位置は、両側とも参加していないときに一致します。その条件を満たす未使用の一致が1つだけのときに結びます。
+項目に記録した各位置の `sourceByteStart`、`sourceByteLength`、`source` が、今のファイルの1つの一致の同じ位置とすべて一致し、その範囲が今のファイル上でも同じ文字列に復号できるとき結びます。`sourceByteStart` が `-1` の位置は、両側とも参加していないときに一致します。その条件を満たす未使用の一致が1つだけのときに結びます。
 
-ファイルの前にバイトが増えると、この方式は外れます。あとの方式が続きを見ます。前後の文字が変わっていても、原文のバイト範囲と中身が同じなら、この方式が先に結びます。前後で区別したいときは `-disable offset` を使います。
+ファイルの前にバイトが増えると、この方式は外れます。あとの方式が続きを見ます。前後の文字が変わっていても、原文のバイト範囲と中身が同じなら、この方式が先に結びます。前後で区別したいときは `-disable sourceByte` を使います。
 
 ### 5.3 `exact`
 
@@ -338,31 +332,31 @@ JSON の形や、フィールドの意味、配列の並び、番号の数え方
 
 `align` が有効なら、区間の中で原文が同じ行を最長共通部分として結びます。`matchedBy` は `align`、`status` は `exact` です。
 
-`revised` が有効なら、その共通部分をさらに杭にして、削除と追加の本数が同じ区間を上から順に結びます。本数が違う区間は書きません。`matchedBy` は `revised` です。`source` の配列が同じなら `status` は `exact` で、`previousSource` はすべて空文字です。いずれかの位置が変わっていれば `status` は `revised` です。変わった位置の `previousSource` には変わる前の文字列を残し、変わっていない位置は `""` です。`source` は今のテキスト側の配列に更新します。
+`revised` が有効なら、その共通部分をさらに杭にして、削除と追加の本数が同じ区間を上から順に結びます。本数が違う区間は書きません。`matchedBy` は `revised` です。`source` の配列が今の一致と同じなら `status` は `exact` です。いずれかの位置が違えば `status` は `revised` です。`source` は更新しません。
 
 `align` を無効にして `revised` だけを有効にすると、杭と杭のあいだ全体が1つの区間になります。その区間の本数が同じなら、上から順に結びます。前の方式を無効にすると区間が広がり、ファイルの広い範囲を順番で結ぶことがあります。文面の変わった枠へ変更後文字列を載せないときは `revised` を無効にします。
 
-更新で増えた一致は、テキストファイル側の原文のまま残します。JSON には自動では追加しません。消えた一致の項目は JSON に残し、`status` を `unmatched`、`matchedBy` を空、`previousSource` を `source` と同じ長さの空文字にします。`source` は更新しません。`replacements` は残します。
+更新で増えた一致は、テキストファイル側の原文のまま残します。JSON には自動では追加しません。消えた一致の項目は JSON に残し、`status` を `unmatched`、`matchedBy` を空にします。`source` は更新しません。`replacements` は残します。
 
-カタログの `sourceNames` の並びが、今のパターンの原文名と違うときは警告を出します。`key` 方式は、この警告では無効にしません。書き戻しのあと、`sourceNames` は今のパターンの名前で上書きします。原文グループが無いときは `[""]` です。
+カタログの `sourceNames` の並びが、今のパターンの原文名と違うときは警告を出します。`key` 方式は、この警告では無効にしません。`sourceNames` は上書きしません。
 
 ### 5.6 実際に書くとき
 
 対応が決まった項目でも、選んだ番号の行が `replacements` に無いときは、テキストファイルは変えません。その項目は `status` が `unmatched`、`matchedBy` が空です。
 
-選んだ番号の行がある項目は、その行に書いてある位置だけを差し替えます。空文字も含めます。`byteStart` が `-1` の位置は残します。差し替えるのはその原文のバイト範囲だけです。一致の外側と、原文と原文のあいだは残します。差し替えは開始位置、長さ、配列の位置の順に組み立て、結果を読んだときと同じ符号化と BOM で出力します。
+選んだ番号の行がある項目は、その行に書いてある位置だけを差し替えます。空文字も含めます。`sourceByteStart` が `-1` の位置は残します。差し替えるのは、その回に読み直した原文のバイト範囲です。一致の外側と、原文と原文のあいだは残します。差し替えは開始位置、長さ、配列の位置の順に組み立て、結果を読んだときと同じ符号化と BOM で出力します。
 
-書き込んだ項目は次のように更新します。
+書き戻しで更新するのは、先頭の `used` と `methods`、全項目の `status` と `matchedBy` だけです。`methods` は実行順へ並べ替えます。`-disable` で外した方式は消しません。`toolVersion`、`encoding`、`bom`、`file`、`sourceNames`、`key`、`before`、`source`、`after`、`sourceByteStart`、`sourceByteLength` は変えません。`program`、`fileVersion`、`note`、`pattern`、`keyNames`、`replacementNames`、`replacements` も変えません。
 
-- `source`、`before`、`after`、`byteStart`、`byteLength` は、書き戻す前の入力ファイル上の現在の一致に合わせる
-- `key` は、今のパターンからカタログの `keyNames` の順で取り直せるときに更新する
-- `source` の配列が同じなら `status` は `exact`、`previousSource` はすべて空文字
-- いずれかの位置が変わったなら `status` は `revised`、変わった位置の `previousSource` は更新前の文字列、変わっていない位置は `""`
+書き込んだ項目は次のようにします。
+
+- `source` の配列が今の一致と同じなら `status` は `exact`
+- いずれかの位置が違えば `status` は `revised`
 - `matchedBy` は、その項目を結んだ方式名
 
-`byteStart` は出力ファイルではなく、その回に読んだ入力ファイル上の位置です。書き込んだ変更後文字列のバイト長が原文と異なる出力ファイルに、次の回の `offset` がそのまま当たるとは限りません。当たらないときは後ろの方式が探します。
+`sourceByteStart` は抽出したときの位置のままです。ファイルの前にバイトが増えたり、その位置の原文が変わったりすると、次の `sourceByte` は外れます。外れたときは後ろの方式が探します。
 
-`matchedBy` と `status` は、書き戻しのたびに全項目を書き直します。JSON の変更後文字列を手で直しても、次に書き戻すまでは `matchedBy` は変わりません。書き戻した JSON の `toolVersion` は、その回を実行したツールのバージョンに更新します。`program` と `fileVersion` は、入力の JSON に書いてあった文字列のまま残します。`note` は書き戻しで読みません。入力に書いてあった JSON の値を残します。無ければ空文字を書きます。
+`matchedBy` と `status` は、書き戻しのたびに全項目を書き直します。JSON の変更後文字列を手で直しても、次に書き戻すまでは `matchedBy` は変わりません。`program` と `fileVersion` と `toolVersion` は、入力の JSON に書いてあった文字列のまま残します。`note` は書き戻しで読みません。入力に書いてあった JSON の値を残します。無ければ空文字を書きます。
 
 書き戻す項目が0件でも、符号化し直したテキストファイルを出力します。変更が無ければ、入力と同じバイト列になります。
 
@@ -386,7 +380,7 @@ excerptStringPutback putback [-language en|ja] -number <番号> -o <出力ファ
 
 ## 7. 人が変えてよいフィールド
 
-人が変えてよいのは、原則として `replacementNames`、`fileVersion`、`note`、各項目の `replacements` です。`fileVersion` は、その JSON がどの版かを人が見分けるための文字列です。`note` には JSON の値を自由に書けます。このツールは `note` の中身を読まず、テキストへも書き込みません。`source`、`key`、`before`、`after`、バイト位置、`pattern`、符号化は、書き戻しの対応づけに使います。
+人が変えてよいのは、原則として `replacementNames`、`fileVersion`、`note`、各項目の `replacements` です。`fileVersion` は、その JSON がどの版かを人が見分けるための文字列です。`note` には JSON の値を自由に書けます。このツールは `note` の中身を読まず、テキストへも書き込みません。`source`、`key`、`before`、`after`、`sourceByteStart`、`sourceByteLength`、`pattern`、符号化は、書き戻しの対応づけに使います。書き戻しでは変えません。
 
 JSON は UTF-8（BOM なし）で保存します。
 

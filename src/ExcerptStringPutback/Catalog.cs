@@ -14,8 +14,6 @@ internal sealed class Entry
 
     public List<string> After { get; set; } = new();
 
-    public List<string> PreviousSource { get; set; } = new();
-
     public List<List<string>> Replacements { get; set; } = new();
 
     public List<int> ByteStart { get; set; } = new();
@@ -69,11 +67,11 @@ internal static class ToolInfo
 {
     public const string ProgramName = "excerptStringPutback";
 
-    public const string Version = "1.1.0";
+    public const string Version = "1.2.0";
 
-    public const int FormatVersion = 2;
+    public const int FormatVersion = 3;
 
-    public static readonly string[] Methods = ["key", "offset", "exact", "context", "align", "revised"];
+    public static readonly string[] Methods = ["key", "sourceByte", "exact", "context", "align", "revised"];
 
     public static List<string> Order(IEnumerable<string> names)
     {
@@ -227,12 +225,10 @@ internal static class CatalogJson
         StringsProp(builder, 1, "keyNames", catalog.KeyNames);
         StringsProp(builder, 1, "sourceNames", catalog.SourceNames);
         StringsProp(builder, 1, "replacementNames", catalog.ReplacementNames);
-        IntProp(builder, 1, "used", catalog.Used);
-        StringsProp(builder, 1, "methods", catalog.Methods);
         builder.Append("  \"entries\": ");
         if (catalog.Entries.Count == 0)
         {
-            builder.Append("[]\n");
+            builder.Append("[]");
         }
         else
         {
@@ -248,9 +244,12 @@ internal static class CatalogJson
                 builder.Append('\n');
             }
 
-            builder.Append("  ]\n");
+            builder.Append("  ]");
         }
 
+        builder.Append(",\n");
+        IntProp(builder, 1, "used", catalog.Used);
+        StringsProp(builder, 1, "methods", catalog.Methods, last: true);
         builder.Append("}\n");
         return builder.ToString();
     }
@@ -262,10 +261,9 @@ internal static class CatalogJson
         StringsProp(builder, 3, "before", entry.Before);
         StringsProp(builder, 3, "source", entry.Source);
         StringsProp(builder, 3, "after", entry.After);
-        StringsProp(builder, 3, "previousSource", entry.PreviousSource);
         RowsProp(builder, 3, "replacements", entry.Replacements);
-        IntsProp(builder, 3, "byteStart", entry.ByteStart);
-        IntsProp(builder, 3, "byteLength", entry.ByteLength);
+        IntsProp(builder, 3, "sourceByteStart", entry.ByteStart);
+        IntsProp(builder, 3, "sourceByteLength", entry.ByteLength);
         StringProp(builder, 3, "status", entry.Status);
         StringProp(builder, 3, "matchedBy", entry.MatchedBy, last: true);
         builder.Append("    }");
@@ -292,10 +290,9 @@ internal static class CatalogJson
                 Before = OptionalStrings(item, "before"),
                 Source = OptionalStrings(item, "source"),
                 After = OptionalStrings(item, "after"),
-                PreviousSource = OptionalStrings(item, "previousSource"),
                 Replacements = OptionalRows(item, "replacements"),
-                ByteStart = OptionalInts(item, "byteStart", -1),
-                ByteLength = OptionalInts(item, "byteLength", 0),
+                ByteStart = OptionalInts(item, "sourceByteStart", -1),
+                ByteLength = OptionalInts(item, "sourceByteLength", 0),
                 Status = OptionalString(item, "status"),
                 MatchedBy = OptionalString(item, "matchedBy"),
             });
