@@ -43,7 +43,7 @@ internal sealed class Catalog
 
     public bool Bom { get; set; }
 
-    public string Newline { get; set; } = "lf";
+    public string Newline { get; set; } = "LF";
 
     public string Pattern { get; set; } = "";
 
@@ -205,7 +205,7 @@ internal static class CatalogJson
                 FileVersion = OptionalString(root, "fileVersion"),
                 Note = OptionalNote(root, "note"),
                 File = OptionalString(root, "file"),
-                Encoding = OptionalString(root, "encoding"),
+                Encoding = OptionalEncoding(root),
                 Bom = OptionalBool(root, "bom"),
                 Newline = OptionalNewline(root),
                 Pattern = OptionalString(root, "pattern"),
@@ -352,6 +352,17 @@ internal static class CatalogJson
         return element.GetString() ?? "";
     }
 
+    private static string OptionalEncoding(JsonElement root)
+    {
+        var value = OptionalString(root, "encoding");
+        if (value.Length == 0)
+        {
+            return "";
+        }
+
+        return TextCodec.Canonical(value);
+    }
+
     private static bool OptionalBool(JsonElement root, string name)
     {
         if (!root.TryGetProperty(name, out var element) || element.ValueKind == JsonValueKind.Null)
@@ -371,7 +382,7 @@ internal static class CatalogJson
     {
         if (!root.TryGetProperty("newline", out var element) || element.ValueKind == JsonValueKind.Null)
         {
-            return "lf";
+            return "LF";
         }
 
         if (element.ValueKind != JsonValueKind.String)
@@ -380,7 +391,7 @@ internal static class CatalogJson
         }
 
         var value = element.GetString();
-        if (value is not ("lf" or "crlf" or "cr"))
+        if (value is not ("LF" or "CRLF" or "CR"))
         {
             throw new ToolException(Text.Current.InvalidNewline);
         }
