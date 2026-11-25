@@ -138,7 +138,7 @@ internal static class TextCodec
         };
     }
 
-    public static string DetectNewline(string text)
+    public static string DetectLineEnding(string text)
     {
         var crlf = 0;
         var lf = 0;

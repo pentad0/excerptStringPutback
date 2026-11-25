@@ -69,7 +69,7 @@ internal sealed class Messages
         JsonUtf8 = "The JSON is not valid UTF-8.",
         JsonShape = "The JSON format is invalid.",
         FormatVersion = "formatVersion is not 4.",
-        InvalidNewline = "newline must be LF, CRLF, or CR.",
+        InvalidLineEnding = "lineEnding must be LF, CRLF, or CR.",
         SourceNameMissing = "Warning: A catalog source name is missing from the current pattern.",
         UsedInvalid = "used is invalid.",
         EntriesArray = "entries must be an array.",
@@ -130,7 +130,7 @@ internal sealed class Messages
         JsonUtf8 = "JSON を UTF-8 として読めません。",
         JsonShape = "JSON の形式が違います。",
         FormatVersion = "formatVersion が 4 ではありません。",
-        InvalidNewline = "newline は LF、CRLF、CR のいずれかです。",
+        InvalidLineEnding = "lineEnding は LF、CRLF、CR のいずれかです。",
         SourceNameMissing = "警告: カタログの sourceNames に、今のパターンに無い名前があります。",
         UsedInvalid = "used が不正です。",
         EntriesArray = "entries は配列です。",
@@ -222,7 +222,7 @@ internal sealed class Messages
 
     public required string FormatVersion { get; init; }
 
-    public required string InvalidNewline { get; init; }
+    public required string InvalidLineEnding { get; init; }
 
     public required string SourceNameMissing { get; init; }
 
