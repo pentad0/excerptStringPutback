@@ -33,9 +33,9 @@ internal sealed class Catalog
 
     public string ToolVersion { get; set; } = "";
 
-    public string FileVersion { get; set; } = "";
+    public RawJson FileVersion { get; set; } = new() { Json = "1" };
 
-    public NoteValue Note { get; set; } = new();
+    public RawJson Note { get; set; } = new();
 
     public string File { get; set; } = "";
 
@@ -60,7 +60,7 @@ internal sealed class Catalog
     public List<Entry> Entries { get; set; } = new();
 }
 
-internal sealed class NoteValue
+internal sealed class RawJson
 {
     public string Json { get; set; } = "\"\"";
 }
@@ -202,8 +202,8 @@ internal static class CatalogJson
                 Program = OptionalString(root, "program"),
                 FormatVersion = version,
                 ToolVersion = OptionalString(root, "toolVersion"),
-                FileVersion = OptionalString(root, "fileVersion"),
-                Note = OptionalNote(root, "note"),
+                FileVersion = OptionalRaw(root, "fileVersion", "1"),
+                Note = OptionalRaw(root, "note", "\"\""),
                 File = OptionalString(root, "file"),
                 Encoding = OptionalEncoding(root),
                 Bom = OptionalBool(root, "bom"),
@@ -234,8 +234,8 @@ internal static class CatalogJson
         StringProp(builder, 1, "program", catalog.Program);
         IntProp(builder, 1, "formatVersion", catalog.FormatVersion);
         StringProp(builder, 1, "toolVersion", catalog.ToolVersion);
-        StringProp(builder, 1, "fileVersion", catalog.FileVersion);
-        NoteProp(builder, 1, "note", catalog.Note);
+        RawProp(builder, 1, "fileVersion", catalog.FileVersion);
+        RawProp(builder, 1, "note", catalog.Note);
         StringProp(builder, 1, "file", catalog.File);
         StringProp(builder, 1, "encoding", catalog.Encoding);
         BoolProp(builder, 1, "bom", catalog.Bom);
@@ -327,14 +327,14 @@ internal static class CatalogJson
         return list;
     }
 
-    private static NoteValue OptionalNote(JsonElement root, string name)
+    private static RawJson OptionalRaw(JsonElement root, string name, string missing)
     {
         if (!root.TryGetProperty(name, out var element))
         {
-            return new NoteValue();
+            return new RawJson { Json = missing };
         }
 
-        return new NoteValue { Json = element.GetRawText() };
+        return new RawJson { Json = element.GetRawText() };
     }
 
     private static string OptionalString(JsonElement root, string name)
@@ -502,10 +502,10 @@ internal static class CatalogJson
         return list;
     }
 
-    private static void NoteProp(StringBuilder builder, int indent, string name, NoteValue note, bool last = false)
+    private static void RawProp(StringBuilder builder, int indent, string name, RawJson value, bool last = false)
     {
         Prefix(builder, indent, name);
-        using var document = JsonDocument.Parse(note.Json);
+        using var document = JsonDocument.Parse(value.Json);
         WriteValue(builder, document.RootElement, indent);
         End(builder, last);
     }
