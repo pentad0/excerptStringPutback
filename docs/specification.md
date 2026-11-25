@@ -12,14 +12,14 @@
 
 | `encoding` | BOM | 先頭バイト |
 | --- | --- | --- |
-| `utf-8` | なし | なし |
-| `utf-8` | あり | `EF BB BF` |
-| `utf-16le` | なし | なし |
-| `utf-16le` | あり | `FF FE` |
-| `utf-16be` | なし | なし |
-| `utf-16be` | あり | `FE FF` |
+| `UTF-8` | なし | なし |
+| `UTF-8` | あり | `EF BB BF` |
+| `UTF-16LE` | なし | なし |
+| `UTF-16LE` | あり | `FF FE` |
+| `UTF-16BE` | なし | なし |
+| `UTF-16BE` | あり | `FE FF` |
 
-BOM があるファイルは、その BOM で符号化を決めます。コマンドの `-encoding` と違っていても BOM を優先し、標準エラーにその旨を出します。
+BOM があるファイルは、その BOM で符号化を決めます。コマンドの `-encoding` と違っていても BOM を優先し、標準エラーにその旨を出します。`-encoding` とカタログの `encoding` は、大文字小文字とハイフンの有無を問わず受け取り、上の表記に揃えます。
 
 BOM が無いファイルは、自動では判別しません。`-encoding` が必要です。英語の UTF-16 LE は `41 00 42 00` のようになり、NUL を含む UTF-8 としても合法です。テキスト内の制御コードにも NUL があり得るので、`00` の多さでは区別しません。
 
@@ -31,6 +31,15 @@ BOM が無いファイルは、自動では判別しません。`-encoding` が�
 - UTF-32 の BOM（`FF FE 00 00` または `00 00 FE FF`）
 
 読み込んだ文字列は、改行を変換せず、制御バイトも残したまま正規表現にかけます。バイト位置はファイル先頭から数えます。BOM の長さも位置に含まれます。UTF-8 の BOM は 3 バイト、UTF-16 の BOM は 2 バイトです。
+
+復号した文字列から、ファイルの改行コードを1つ決めて `newline` に書きます。数えるのは `\r\n`、単独の `\n`、単独の `\r` だけです。`\r\n` は1つとして数え、その中の `\r` と `\n` は別に数えません。
+
+- 改行が1つも無いときは `LF`
+- `\r\n` が最も多いときは `CRLF`
+- 単独の `\n` が最も多いときは `LF`
+- 単独の `\r` が最も多いときは `CR`
+
+最も多いものが複数あるときは、ファイルの先頭に近い方にします。
 
 ## 2. 正規表現
 
@@ -117,13 +126,14 @@ pattern: (?m)^(?Key<id>\d+)\t(?Source<title>[^\t]*)\t(?Source<body>.*)
 
 ### 3.0 フォーマットバージョン
 
-現在の `formatVersion` は **3** です。この形式を書き出すツールのバージョンは **1.2.0** です。`excerptStringPutback version` でも確認できます。書き出した JSON の `program` には、そのファイルを作成したプログラムの名前が入ります。このツールが作成したときは `excerptStringPutback` です。`toolVersion` には、そのファイルを抽出したツールのバージョンが入ります。`fileVersion` は、利用者がこの JSON ファイル自身の版を自由に書く目印です。`note` は、利用者が JSON の値を自由に書く欄です。中身は読みません。ツールは `program` も `toolVersion` も `fileVersion` も `note` も、最新かどうかや書き戻しの判定に使いません。`program` や `toolVersion` や `fileVersion` や `note` が無いファイルも形式 3 として読みます。`formatVersion` 自身が 3 でないファイルは読みません。
+現在の `formatVersion` は **4** です。この形式を書き出すツールのバージョンは **1.3.0** です。`excerptStringPutback version` でも確認できます。書き出した JSON の `program` には、そのファイルを作成したプログラムの名前が入ります。このツールが作成したときは `excerptStringPutback` です。`toolVersion` には、そのファイルを抽出したツールのバージョンが入ります。`fileVersion` は、利用者がこの JSON ファイル自身の版を自由に書く目印です。`note` は、利用者が JSON の値を自由に書く欄です。中身は読みません。ツールは `program` も `toolVersion` も `fileVersion` も `note` も、最新かどうかや書き戻しの判定に使いません。`program` や `toolVersion` や `fileVersion` や `note` が無いファイルも形式 4 として読みます。`formatVersion` 自身が 4 でないファイルは読みません。
 
 | formatVersion | ツール | 内容 |
 | --- | --- | --- |
 | 1 | 1.0.0 | `(?P<名前>...)` をキー、最初の名前の無いキャプチャを原文にした初期形式。このツールは読まない |
 | 2 | 1.1.0 | `(?Key<名前>...)` と `(?Source<名前>...)`。1マッチ1項目のまま `source` と `replacements` を配列にする。番号は `replacementNames` と `replacements` の 0 始まりのインデックス。0 未満は無効。このツールは読まない |
-| 3 | 1.2.0 | `sourceByteStart` と `sourceByteLength`。方式名は `sourceByte`。`previousSource` は無い。書き戻しが更新するのは `used`、`methods`、`status`、`matchedBy`。実行順の先頭は `sourceByte` |
+| 3 | 1.2.0 | `sourceByteStart` と `sourceByteLength`。方式名は `sourceByte`。`previousSource` は無い。書き戻しが更新するのは `used`、`methods`、`status`、`matchedBy`。実行順の先頭は `sourceByte`。このツールは読まない |
+| 4 | 1.3.0 | `bom` の次に `newline`。値は `LF`、`CRLF`、`CR`。`encoding` は `UTF-8`、`UTF-16LE`、`UTF-16BE`。抽出時にファイルの改行コードを1つ決める。書き戻しでは変えない |
 
 JSON の形や、フィールドの意味、配列の並び、番号の数え方を変えるときは、必ず `formatVersion` を 1 増やしてからその形を書き出します。合わせてツールのバージョン番号も上げ、上の表に両方を残します。`formatVersion` を据え置いたまま、既存のファイルの意味が変わる変更をしてはなりません。
 
@@ -132,13 +142,14 @@ JSON の形や、フィールドの意味、配列の並び、番号の数え方
 ```json
 {
   "program": "excerptStringPutback",
-  "formatVersion": 3,
-  "toolVersion": "1.2.0",
+  "formatVersion": 4,
+  "toolVersion": "1.3.0",
   "fileVersion": "3",
   "note": "",
   "file": "data/script.txt",
-  "encoding": "utf-8",
+  "encoding": "UTF-8",
   "bom": false,
+  "newline": "LF",
   "pattern": "(?m)^(?Key<key>[A-Z0-9_]+)=(?Source<value>.*)$",
   "keyNames": [
     "key"
@@ -226,13 +237,14 @@ JSON の形や、フィールドの意味、配列の並び、番号の数え方
 | フィールド | 意味 |
 | --- | --- |
 | `program` | この JSON を作成したプログラムの名前。JSON の最初のフィールド。抽出直後は `excerptStringPutback`。書き戻しでは変えない。空でも受け取る。判定には使わない |
-| `formatVersion` | JSON の形式番号。現在は 3。形式を変えたら 1 増やす |
+| `formatVersion` | JSON の形式番号。現在は 4。形式を変えたら 1 増やす |
 | `toolVersion` | この JSON を抽出したツールのバージョン。書き戻しでは変えない。形式の判定には使わない |
 | `fileVersion` | この JSON ファイルの版。利用者が自由に書く文字列で、どのファイルが新しいかの目印にする。抽出直後は `""`。書き戻しでは変えない。中身の形式は問わない |
 | `note` | 利用者が自由に書く欄。JSON の値なら何でもよい。抽出直後は `""`。このツールは中身を読まない。テキストへは書き込まない。入力に書いてあった値は、書き戻した JSON にこのツールの字下げで残す。欄が無いときは空文字を書く |
 | `file` | 抽出したテキストファイルのパス。区切りは `/`。書き戻しでは変えない |
-| `encoding` | `utf-8`、`utf-16le`、`utf-16be` のいずれか。抽出時に決める。書き戻しでは変えない。BOM が無いファイルを読むときの指定になる |
+| `encoding` | `UTF-8`、`UTF-16LE`、`UTF-16BE` のいずれか。抽出時に決める。書き戻しでは種類を変えず、表記をこの3つへ揃える。BOM が無いファイルを読むときの指定になる。大文字小文字とハイフンの有無は受け取る |
 | `bom` | 抽出したファイルに BOM があったか。書き戻しでは変えない |
+| `newline` | ファイルの改行コード。`LF`、`CRLF`、`CR` のいずれか。抽出時に第1節の規則で決める。`bom` の次に書く。書き戻しでは変えない。欄が無いときは `LF`。それ以外はエラー |
 | `pattern` | 抽出と書き戻しの両方で使う正規表現 |
 | `keyNames` | `(?Key<名前>...)` の名前。左から並ぶ。無ければ `[]` |
 | `sourceNames` | `(?Source<名前>...)` の名前。左から並ぶ。原文グループが無いときは `[""]`。項目の `source` と同じ位置が対応する。書き戻しでは変えない。今のパターンと違うときは警告を出す |
@@ -286,7 +298,7 @@ JSON の形や、フィールドの意味、配列の並び、番号の数え方
 2. `pattern` をコンパイルし、名前と原文のキャプチャを決める。
 3. ファイルの前から順に、重ならない一致を取る。
 4. 各一致から `key`、`before`、`source`、`after`、`sourceByteStart`、`sourceByteLength` を作る。
-5. `formatVersion` は 3、`program` は `excerptStringPutback`、`toolVersion` は実行中のツールのバージョン、`fileVersion` と `note` は空文字、各項目の `replacements` は `source` を1行だけ入れた配列、`replacementNames` は `["changed"]`、`status` と `matchedBy` は空文字、`used` は 0 にする。`sourceNames` はパターンの原文名、原文グループが無いときは `[""]` にする。
+5. `formatVersion` は 4、`program` は `excerptStringPutback`、`toolVersion` は実行中のツールのバージョン、`fileVersion` と `note` は空文字、`newline` は第1節の規則で決める。各項目の `replacements` は `source` を1行だけ入れた配列、`replacementNames` は `["changed"]`、`status` と `matchedBy` は空文字、`used` は 0 にする。`sourceNames` はパターンの原文名、原文グループが無いときは `[""]` にする。
 6. `methods` は、コマンドで無効にしていない方式を実行順で入れる。
 
 `changed` は、0番の変更後文字列の表示名です。中身は原文の複製で、人が書き換えてから書き戻します。`replacementNames` は対応づけには使いません。原文が空の位置は、変更後文字列も空になります。空の変更後文字列も書き戻し、その位置を空にします。
@@ -297,7 +309,7 @@ JSON の形や、フィールドの意味、配列の並び、番号の数え方
 
 `putback` は、カタログの `pattern` を今のテキストファイルに掛け直し、既存の項目と対応づけます。テキストファイルを `-o` へ書き、カタログの対応づけ結果を更新します。`-o` と入力のテキストファイルが同じパスのときは、そのファイルを更新します。別のパスのときは、元のテキストファイルは変更しません。書く文字列は、`-source` のときは各項目の `source`、それ以外は選んだ番号の変更後文字列です。
 
-読む符号化はカタログの `encoding` を指定として使い、ファイル側に BOM があれば、その回の読み込みと出力だけ BOM を優先します。カタログの `encoding`、`bom`、`file` は変えません。
+読む符号化はカタログの `encoding` を指定として使い、ファイル側に BOM があれば、その回の読み込みと出力だけ BOM を優先します。カタログの `encoding` は種類を変えず、表記を `UTF-8`、`UTF-16LE`、`UTF-16BE` に揃えます。`bom`、`newline`、`file` は変えません。
 
 有効な方式はカタログの `methods` です。`-disable` で外した方式は、その1回だけ使いません。保存する `methods` からは消しません。
 
@@ -349,7 +361,7 @@ JSON の形や、フィールドの意味、配列の並び、番号の数え方
 
 `-source` のときは、番号の行の代わりに各項目の `source` を差し込みます。空文字も含めます。`sourceByteStart` が `-1` の位置は残します。`source` が一致の位置より短いときは、書いてある位置だけを書きます。長い分は書きません。NFC にはせず、原文のまま符号化します。`replacements` は残します。`used` は `"source"` にします。
 
-書き戻しで更新するのは、先頭の `used` と `methods`、全項目の `status` と `matchedBy` だけです。`-source` のときは `used` を `"source"` にします。`methods` は実行順へ並べ替えます。`-disable` で外した方式は消しません。`toolVersion`、`encoding`、`bom`、`file`、`sourceNames`、`key`、`before`、`source`、`after`、`sourceByteStart`、`sourceByteLength` は変えません。`program`、`fileVersion`、`note`、`pattern`、`keyNames`、`replacementNames`、`replacements` も変えません。
+書き戻しで更新するのは、先頭の `used` と `methods`、全項目の `status` と `matchedBy` だけです。`-source` のときは `used` を `"source"` にします。`methods` は実行順へ並べ替えます。`-disable` で外した方式は消しません。`toolVersion`、`bom`、`newline`、`file`、`sourceNames`、`key`、`before`、`source`、`after`、`sourceByteStart`、`sourceByteLength` は変えません。`encoding` は種類を変えず、表記だけ揃えます。`program`、`fileVersion`、`note`、`pattern`、`keyNames`、`replacementNames`、`replacements` も変えません。
 
 書き込んだ項目は次のようにします。
 
