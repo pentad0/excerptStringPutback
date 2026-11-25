@@ -39,8 +39,8 @@ public class ExcerptStringPutbackTests
         Assert.Equal("", catalog.FileVersion);
         Assert.Equal("\"\"", catalog.Note.Json);
         Assert.Equal("excerptStringPutback", catalog.Program);
-        Assert.Equal("1.4.0", catalog.ToolVersion);
-        Assert.Equal(5, catalog.FormatVersion);
+        Assert.Equal("1.3.0", catalog.ToolVersion);
+        Assert.Equal(4, catalog.FormatVersion);
         Assert.Equal("LF", catalog.LineEnding);
         Assert.Equal(ToolInfo.Methods, catalog.Methods);
         var raw = File.ReadAllText(json);
@@ -106,7 +106,7 @@ public class ExcerptStringPutbackTests
 
         File.WriteAllText(text, "A");
         File.WriteAllText(json, """
-        {"formatVersion":5,"pattern":"(.*)","encoding":"utf-8","entries":[{"source":["A"],"replacements":[["B"]]}]}
+        {"formatVersion":4,"pattern":"(.*)","encoding":"utf-8","entries":[{"source":["A"],"replacements":[["B"]]}]}
         """);
         Assert.Equal(0, Run("putback", "-o", output, json, text).Code);
         Assert.Equal("LF", CatalogJson.Parse(File.ReadAllText(json)).LineEnding);
@@ -114,7 +114,7 @@ public class ExcerptStringPutbackTests
         Assert.Contains("\"encoding\": \"UTF-8\"", File.ReadAllText(json), StringComparison.Ordinal);
 
         File.WriteAllText(json, """
-        {"formatVersion":5,"pattern":"(.*)","encoding":"utf-8","lineEnding":"lf","entries":[]}
+        {"formatVersion":4,"pattern":"(.*)","encoding":"utf-8","lineEnding":"lf","entries":[]}
         """);
         var invalid = Run("putback", "-o", output, json, text);
         Assert.Equal(1, invalid.Code);
@@ -347,7 +347,7 @@ public class ExcerptStringPutbackTests
         var updated = CatalogJson.Parse(File.ReadAllText(json));
         Assert.Equal("excerptTextPutback", updated.Program);
         Assert.Equal("3", updated.FileVersion);
-        Assert.Equal("1.4.0", updated.ToolVersion);
+        Assert.Equal("1.3.0", updated.ToolVersion);
         Assert.Equal(new[] { "changed", "常体" }, updated.ReplacementNames);
         Assert.Equal("exact", updated.Entries[0].Status);
         Assert.Equal("sourceByte", updated.Entries[0].MatchedBy);
@@ -578,7 +578,7 @@ public class ExcerptStringPutbackTests
         File.WriteAllText(json, """
         {
           "program": "excerptTextPutback",
-          "formatVersion": 5,
+          "formatVersion": 4,
           "toolVersion": "9.9.9",
           "fileVersion": "3",
           "extra": "drop me",
@@ -640,7 +640,7 @@ public class ExcerptStringPutbackTests
         var output = Path.Combine(dir, "out.txt");
         File.WriteAllText(json, """
         {
-          "formatVersion": 5,
+          "formatVersion": 4,
           "note": "メモ",
           "pattern": "(Hello)",
           "encoding": "utf-8",
@@ -666,7 +666,7 @@ public class ExcerptStringPutbackTests
         File.WriteAllText(text, "Hello");
         File.WriteAllText(json, """
         {
-          "formatVersion": 5,
+          "formatVersion": 4,
           "note": ["tag", "a<b"],
           "pattern": "(Hello)",
           "encoding": "utf-8",
@@ -686,37 +686,37 @@ public class ExcerptStringPutbackTests
         Assert.Contains("  \"note\": [\n    \"tag\",\n    \"a<b\"\n  ],\n", raw, StringComparison.Ordinal);
         Assert.DoesNotContain("\\u003c", raw, StringComparison.Ordinal);
         File.WriteAllText(json, """
-        {"formatVersion":5,"note":[],"used":1,"pattern":"(Hello)","encoding":"utf-8","entries":[]}
+        {"formatVersion":4,"note":[],"used":1,"pattern":"(Hello)","encoding":"utf-8","entries":[]}
         """);
         Assert.Equal(0, Run("putback", "-o", output, json, text).Code);
         Assert.Contains("\"note\": []", File.ReadAllText(json), StringComparison.Ordinal);
 
         File.WriteAllText(json, """
-        {"formatVersion":5,"note":null,"used":1,"pattern":"(Hello)","encoding":"utf-8","entries":[]}
+        {"formatVersion":4,"note":null,"used":1,"pattern":"(Hello)","encoding":"utf-8","entries":[]}
         """);
         Assert.Equal(0, Run("putback", "-o", output, json, text).Code);
         Assert.Contains("\"note\": null", File.ReadAllText(json), StringComparison.Ordinal);
 
         File.WriteAllText(json, """
-        {"formatVersion":5,"note":1.50,"used":1,"pattern":"(Hello)","encoding":"utf-8","entries":[]}
+        {"formatVersion":4,"note":1.50,"used":1,"pattern":"(Hello)","encoding":"utf-8","entries":[]}
         """);
         Assert.Equal(0, Run("putback", "-o", output, json, text).Code);
         Assert.Contains("\"note\": 1.50", File.ReadAllText(json), StringComparison.Ordinal);
 
         File.WriteAllText(json, """
-        {"formatVersion":5,"note":true,"used":1,"pattern":"(Hello)","encoding":"utf-8","entries":[]}
+        {"formatVersion":4,"note":true,"used":1,"pattern":"(Hello)","encoding":"utf-8","entries":[]}
         """);
         Assert.Equal(0, Run("putback", "-o", output, json, text).Code);
         Assert.Contains("\"note\": true", File.ReadAllText(json), StringComparison.Ordinal);
 
         File.WriteAllText(json, """
-        {"formatVersion":5,"note":[1,true,null],"used":1,"pattern":"(Hello)","encoding":"utf-8","entries":[]}
+        {"formatVersion":4,"note":[1,true,null],"used":1,"pattern":"(Hello)","encoding":"utf-8","entries":[]}
         """);
         Assert.Equal(0, Run("putback", "-o", output, json, text).Code);
         Assert.Contains("  \"note\": [\n    1,\n    true,\n    null\n  ],\n", File.ReadAllText(json), StringComparison.Ordinal);
 
         File.WriteAllText(json, """
-        {"formatVersion":5,"note":{"k":"a<b","n":1,"ok":false,"items":[{}]},"used":1,"pattern":"(Hello)","encoding":"utf-8","entries":[]}
+        {"formatVersion":4,"note":{"k":"a<b","n":1,"ok":false,"items":[{}]},"used":1,"pattern":"(Hello)","encoding":"utf-8","entries":[]}
         """);
         Assert.Equal(0, Run("putback", "-o", output, json, text).Code);
         raw = File.ReadAllText(json);
@@ -742,7 +742,7 @@ public class ExcerptStringPutbackTests
         Assert.Equal(1, Run("putback", "-o", output, json, text).Code);
 
         File.WriteAllText(json, """
-        {"formatVersion":5,"pattern":"(.*)","encoding":"utf-8","used":-1,"entries":[]}
+        {"formatVersion":4,"pattern":"(.*)","encoding":"utf-8","used":-1,"entries":[]}
         """);
         Assert.Equal(1, Run("putback", "-o", output, json, text).Code);
         Assert.False(File.Exists(output));
@@ -750,7 +750,7 @@ public class ExcerptStringPutbackTests
         Assert.Equal(2, Run().Code);
         Assert.Equal(2, Run("nope").Code);
         Assert.Equal(0, Run("version").Code);
-        Assert.Equal("1.4.0\n", Run("version").Stdout);
+        Assert.Equal("1.3.0\n", Run("version").Stdout);
         Assert.Equal("", Run("excerpt", "-encoding", "utf-8", "-pattern", "(.*)", "-o", json, text).Stdout);
     }
 
@@ -764,7 +764,7 @@ public class ExcerptStringPutbackTests
         var output = Path.Combine(dir, "out.txt");
         File.WriteAllText(json, """
         {
-          "formatVersion": 5,
+          "formatVersion": 4,
           "pattern": "(Hello)",
           "encoding": "utf-8",
           "replacementNames": ["first", "second"],
@@ -862,7 +862,7 @@ public class ExcerptStringPutbackTests
         Assert.Equal(0, CatalogJson.Parse(File.ReadAllText(json)).Used);
 
         File.WriteAllText(json, """
-        {"formatVersion":5,"pattern":"(.*)","encoding":"utf-8","used":"source","entries":[{"source":["Hello"],"replacements":[["Bye"]]}]}
+        {"formatVersion":4,"pattern":"(.*)","encoding":"utf-8","used":"source","entries":[{"source":["Hello"],"replacements":[["Bye"]]}]}
         """);
         File.WriteAllText(text, "CHANGED");
         Assert.Equal(0, Run("putback", "-o", output, json, text).Code);
@@ -870,7 +870,7 @@ public class ExcerptStringPutbackTests
         Assert.Equal(UsedValue.Source, CatalogJson.Parse(File.ReadAllText(json)).Used);
 
         File.WriteAllText(json, """
-        {"formatVersion":5,"pattern":"(.*)","encoding":"utf-8","used":"other","entries":[]}
+        {"formatVersion":4,"pattern":"(.*)","encoding":"utf-8","used":"other","entries":[]}
         """);
         var invalid = Run("putback", "-o", output, json, text);
         Assert.Equal(1, invalid.Code);
