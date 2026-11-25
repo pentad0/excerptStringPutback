@@ -36,7 +36,7 @@ public class ExcerptStringPutbackTests
         Assert.Equal("", entry.MatchedBy);
         Assert.Equal(new[] { "changed" }, catalog.ReplacementNames);
         Assert.Equal(0, catalog.Used);
-        Assert.Equal("", catalog.FileVersion);
+        Assert.Equal("1", catalog.FileVersion);
         Assert.Equal("\"\"", catalog.Note.Json);
         Assert.Equal("excerptStringPutback", catalog.Program);
         Assert.Equal("1.2.0", catalog.ToolVersion);
@@ -44,7 +44,7 @@ public class ExcerptStringPutbackTests
         Assert.Equal(ToolInfo.Methods, catalog.Methods);
         var raw = File.ReadAllText(json);
         Assert.StartsWith("{\n  \"program\": \"excerptStringPutback\"", raw, StringComparison.Ordinal);
-        Assert.Contains("  \"fileVersion\": \"\",\n  \"note\": \"\",\n", raw, StringComparison.Ordinal);
+        Assert.Contains("  \"fileVersion\": \"1\",\n  \"note\": \"\",\n", raw, StringComparison.Ordinal);
         Assert.DoesNotContain("\\u003c", raw, StringComparison.Ordinal);
     }
 
@@ -597,6 +597,9 @@ public class ExcerptStringPutbackTests
         Assert.Contains("\"note\": \"メモ\"", raw, StringComparison.Ordinal);
         Assert.DoesNotContain("メモ", File.ReadAllText(output), StringComparison.Ordinal);
         Assert.Equal("\"メモ\"", CatalogJson.Parse(raw).Note.Json);
+        Assert.Equal("1", CatalogJson.Parse(raw).FileVersion);
+        Assert.Contains("\"fileVersion\": \"1\"", raw, StringComparison.Ordinal);
+        Assert.Equal("", CatalogJson.Parse("""{"formatVersion":3,"fileVersion":"","entries":[]}""").FileVersion);
 
         File.WriteAllText(text, "Hello");
         File.WriteAllText(json, """

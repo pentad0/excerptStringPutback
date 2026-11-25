@@ -15,7 +15,7 @@ internal static class Engine
             Program = ToolInfo.ProgramName,
             FormatVersion = ToolInfo.FormatVersion,
             ToolVersion = ToolInfo.Version,
-            FileVersion = "",
+            FileVersion = "1",
             Note = new NoteValue(),
             File = StorePath(textPath),
             Encoding = decoded.EncodingName,

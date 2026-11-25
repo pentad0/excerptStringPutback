@@ -33,7 +33,7 @@ internal sealed class Catalog
 
     public string ToolVersion { get; set; } = "";
 
-    public string FileVersion { get; set; } = "";
+    public string FileVersion { get; set; } = "1";
 
     public NoteValue Note { get; set; } = new();
 
@@ -200,7 +200,7 @@ internal static class CatalogJson
                 Program = OptionalString(root, "program"),
                 FormatVersion = version,
                 ToolVersion = OptionalString(root, "toolVersion"),
-                FileVersion = OptionalString(root, "fileVersion"),
+                FileVersion = OptionalString(root, "fileVersion", "1"),
                 Note = OptionalNote(root, "note"),
                 File = OptionalString(root, "file"),
                 Encoding = OptionalString(root, "encoding"),
@@ -333,11 +333,11 @@ internal static class CatalogJson
         return new NoteValue { Json = element.GetRawText() };
     }
 
-    private static string OptionalString(JsonElement root, string name)
+    private static string OptionalString(JsonElement root, string name, string missing = "")
     {
         if (!root.TryGetProperty(name, out var element) || element.ValueKind == JsonValueKind.Null)
         {
-            return "";
+            return missing;
         }
 
         if (element.ValueKind != JsonValueKind.String)
