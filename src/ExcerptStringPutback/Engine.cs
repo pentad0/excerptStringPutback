@@ -20,6 +20,7 @@ internal static class Engine
             File = StorePath(textPath),
             Encoding = decoded.EncodingName,
             Bom = decoded.Bom,
+            Newline = TextCodec.DetectNewline(decoded.Text),
             Pattern = pattern,
             KeyNames = compiled.Keys.ToList(),
             SourceNames = SourceNames(compiled),

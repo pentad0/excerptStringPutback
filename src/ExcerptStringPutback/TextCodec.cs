@@ -138,6 +138,79 @@ internal static class TextCodec
         };
     }
 
+    public static string DetectNewline(string text)
+    {
+        var crlf = 0;
+        var lf = 0;
+        var cr = 0;
+        var firstCrlf = -1;
+        var firstLf = -1;
+        var firstCr = -1;
+        for (var i = 0; i < text.Length; i++)
+        {
+            var c = text[i];
+            if (c == '\r' && i + 1 < text.Length && text[i + 1] == '\n')
+            {
+                if (firstCrlf < 0)
+                {
+                    firstCrlf = i;
+                }
+
+                crlf++;
+                i++;
+                continue;
+            }
+
+            if (c == '\n')
+            {
+                if (firstLf < 0)
+                {
+                    firstLf = i;
+                }
+
+                lf++;
+                continue;
+            }
+
+            if (c == '\r')
+            {
+                if (firstCr < 0)
+                {
+                    firstCr = i;
+                }
+
+                cr++;
+            }
+        }
+
+        var most = Math.Max(crlf, Math.Max(lf, cr));
+        if (most == 0)
+        {
+            return "lf";
+        }
+
+        var name = "lf";
+        var at = int.MaxValue;
+        if (crlf == most && firstCrlf < at)
+        {
+            name = "crlf";
+            at = firstCrlf;
+        }
+
+        if (lf == most && firstLf < at)
+        {
+            name = "lf";
+            at = firstLf;
+        }
+
+        if (cr == most && firstCr < at)
+        {
+            name = "cr";
+        }
+
+        return name;
+    }
+
     public static Encoding Create(string encodingName)
     {
         return encodingName switch

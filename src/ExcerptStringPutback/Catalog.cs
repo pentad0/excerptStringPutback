@@ -43,6 +43,8 @@ internal sealed class Catalog
 
     public bool Bom { get; set; }
 
+    public string Newline { get; set; } = "lf";
+
     public string Pattern { get; set; } = "";
 
     public List<string> KeyNames { get; set; } = new();
@@ -87,9 +89,9 @@ internal static class ToolInfo
 {
     public const string ProgramName = "excerptStringPutback";
 
-    public const string Version = "1.2.0";
+    public const string Version = "1.3.0";
 
-    public const int FormatVersion = 3;
+    public const int FormatVersion = 4;
 
     public static readonly string[] Methods = ["sourceByte", "key", "exact", "context", "align", "revised"];
 
@@ -205,6 +207,7 @@ internal static class CatalogJson
                 File = OptionalString(root, "file"),
                 Encoding = OptionalString(root, "encoding"),
                 Bom = OptionalBool(root, "bom"),
+                Newline = OptionalNewline(root),
                 Pattern = OptionalString(root, "pattern"),
                 KeyNames = OptionalStrings(root, "keyNames"),
                 SourceNames = OptionalStrings(root, "sourceNames"),
@@ -236,6 +239,7 @@ internal static class CatalogJson
         StringProp(builder, 1, "file", catalog.File);
         StringProp(builder, 1, "encoding", catalog.Encoding);
         BoolProp(builder, 1, "bom", catalog.Bom);
+        StringProp(builder, 1, "newline", catalog.Newline);
         StringProp(builder, 1, "pattern", catalog.Pattern);
         StringsProp(builder, 1, "keyNames", catalog.KeyNames);
         StringsProp(builder, 1, "sourceNames", catalog.SourceNames);
@@ -361,6 +365,27 @@ internal static class CatalogJson
         }
 
         return element.GetBoolean();
+    }
+
+    private static string OptionalNewline(JsonElement root)
+    {
+        if (!root.TryGetProperty("newline", out var element) || element.ValueKind == JsonValueKind.Null)
+        {
+            return "lf";
+        }
+
+        if (element.ValueKind != JsonValueKind.String)
+        {
+            throw new ToolException(Text.Current.JsonShape);
+        }
+
+        var value = element.GetString();
+        if (value is not ("lf" or "crlf" or "cr"))
+        {
+            throw new ToolException(Text.Current.InvalidNewline);
+        }
+
+        return value;
     }
 
     private static UsedValue OptionalUsed(JsonElement root)
