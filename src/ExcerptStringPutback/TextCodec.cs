@@ -14,7 +14,7 @@ internal sealed class DecodedText
 
     public required Encoding Encoding { get; init; }
 
-    public int BomLength => Bom ? EncodingName == "utf-8" ? 3 : 2 : 0;
+    public int BomLength => Bom ? EncodingName == "UTF-8" ? 3 : 2 : 0;
 
     public int ByteIndex(int charIndex)
     {
@@ -41,17 +41,17 @@ internal static class TextCodec
         var bomLength = 0;
         if (HasPrefix(bytes, 0xEF, 0xBB, 0xBF))
         {
-            bomName = "utf-8";
+            bomName = "UTF-8";
             bomLength = 3;
         }
         else if (HasPrefix(bytes, 0xFF, 0xFE))
         {
-            bomName = "utf-16le";
+            bomName = "UTF-16LE";
             bomLength = 2;
         }
         else if (HasPrefix(bytes, 0xFE, 0xFF))
         {
-            bomName = "utf-16be";
+            bomName = "UTF-16BE";
             bomLength = 2;
         }
 
@@ -81,14 +81,14 @@ internal static class TextCodec
 
         var encoding = Create(encodingName);
         var bodyLength = bytes.Length - bomLength;
-        if (encodingName is "utf-16le" or "utf-16be")
+        if (encodingName is "UTF-16LE" or "UTF-16BE")
         {
             if (bodyLength % 2 != 0)
             {
                 throw new ToolException(Text.Current.OddUtf16);
             }
 
-            if (HasUnpairedUtf16(bytes.AsSpan(bomLength, bodyLength), encodingName == "utf-16be"))
+            if (HasUnpairedUtf16(bytes.AsSpan(bomLength, bodyLength), encodingName == "UTF-16BE"))
             {
                 throw new ToolException(Text.Current.UnpairedSurrogate);
             }
@@ -101,7 +101,7 @@ internal static class TextCodec
         }
         catch (DecoderFallbackException)
         {
-            throw new ToolException(encodingName == "utf-8"
+            throw new ToolException(encodingName == "UTF-8"
                 ? Text.Current.InvalidUtf8
                 : Text.Current.CannotDecode);
         }
@@ -131,20 +131,93 @@ internal static class TextCodec
         var compact = name.Trim().ToLowerInvariant().Replace("-", "", StringComparison.Ordinal).Replace("_", "", StringComparison.Ordinal);
         return compact switch
         {
-            "utf8" => "utf-8",
-            "utf16le" => "utf-16le",
-            "utf16be" => "utf-16be",
+            "utf8" => "UTF-8",
+            "utf16le" => "UTF-16LE",
+            "utf16be" => "UTF-16BE",
             _ => throw new ToolException(Text.Current.Format(Text.Current.InvalidEncoding, name)),
         };
+    }
+
+    public static string DetectLineEnding(string text)
+    {
+        var crlf = 0;
+        var lf = 0;
+        var cr = 0;
+        var firstCrlf = -1;
+        var firstLf = -1;
+        var firstCr = -1;
+        for (var i = 0; i < text.Length; i++)
+        {
+            var c = text[i];
+            if (c == '\r' && i + 1 < text.Length && text[i + 1] == '\n')
+            {
+                if (firstCrlf < 0)
+                {
+                    firstCrlf = i;
+                }
+
+                crlf++;
+                i++;
+                continue;
+            }
+
+            if (c == '\n')
+            {
+                if (firstLf < 0)
+                {
+                    firstLf = i;
+                }
+
+                lf++;
+                continue;
+            }
+
+            if (c == '\r')
+            {
+                if (firstCr < 0)
+                {
+                    firstCr = i;
+                }
+
+                cr++;
+            }
+        }
+
+        var most = Math.Max(crlf, Math.Max(lf, cr));
+        if (most == 0)
+        {
+            return "LF";
+        }
+
+        var name = "LF";
+        var at = int.MaxValue;
+        if (crlf == most && firstCrlf < at)
+        {
+            name = "CRLF";
+            at = firstCrlf;
+        }
+
+        if (lf == most && firstLf < at)
+        {
+            name = "LF";
+            at = firstLf;
+        }
+
+        if (cr == most && firstCr < at)
+        {
+            name = "CR";
+        }
+
+        return name;
     }
 
     public static Encoding Create(string encodingName)
     {
         return encodingName switch
         {
-            "utf-8" => new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true),
-            "utf-16le" => new UnicodeEncoding(bigEndian: false, byteOrderMark: false, throwOnInvalidBytes: true),
-            "utf-16be" => new UnicodeEncoding(bigEndian: true, byteOrderMark: false, throwOnInvalidBytes: true),
+            "UTF-8" => new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true),
+            "UTF-16LE" => new UnicodeEncoding(bigEndian: false, byteOrderMark: false, throwOnInvalidBytes: true),
+            "UTF-16BE" => new UnicodeEncoding(bigEndian: true, byteOrderMark: false, throwOnInvalidBytes: true),
             _ => throw new ToolException(Text.Current.Format(Text.Current.InvalidEncoding, encodingName)),
         };
     }
