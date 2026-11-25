@@ -43,7 +43,7 @@ internal sealed class Catalog
 
     public bool Bom { get; set; }
 
-    public string Newline { get; set; } = "LF";
+    public string LineEnding { get; set; } = "LF";
 
     public string Pattern { get; set; } = "";
 
@@ -89,9 +89,9 @@ internal static class ToolInfo
 {
     public const string ProgramName = "excerptStringPutback";
 
-    public const string Version = "1.3.0";
+    public const string Version = "1.4.0";
 
-    public const int FormatVersion = 4;
+    public const int FormatVersion = 5;
 
     public static readonly string[] Methods = ["sourceByte", "key", "exact", "context", "align", "revised"];
 
@@ -207,7 +207,7 @@ internal static class CatalogJson
                 File = OptionalString(root, "file"),
                 Encoding = OptionalEncoding(root),
                 Bom = OptionalBool(root, "bom"),
-                Newline = OptionalNewline(root),
+                LineEnding = OptionalLineEnding(root),
                 Pattern = OptionalString(root, "pattern"),
                 KeyNames = OptionalStrings(root, "keyNames"),
                 SourceNames = OptionalStrings(root, "sourceNames"),
@@ -239,7 +239,7 @@ internal static class CatalogJson
         StringProp(builder, 1, "file", catalog.File);
         StringProp(builder, 1, "encoding", catalog.Encoding);
         BoolProp(builder, 1, "bom", catalog.Bom);
-        StringProp(builder, 1, "newline", catalog.Newline);
+        StringProp(builder, 1, "lineEnding", catalog.LineEnding);
         StringProp(builder, 1, "pattern", catalog.Pattern);
         StringsProp(builder, 1, "keyNames", catalog.KeyNames);
         StringsProp(builder, 1, "sourceNames", catalog.SourceNames);
@@ -378,9 +378,9 @@ internal static class CatalogJson
         return element.GetBoolean();
     }
 
-    private static string OptionalNewline(JsonElement root)
+    private static string OptionalLineEnding(JsonElement root)
     {
-        if (!root.TryGetProperty("newline", out var element) || element.ValueKind == JsonValueKind.Null)
+        if (!root.TryGetProperty("lineEnding", out var element) || element.ValueKind == JsonValueKind.Null)
         {
             return "LF";
         }
@@ -393,7 +393,7 @@ internal static class CatalogJson
         var value = element.GetString();
         if (value is not ("LF" or "CRLF" or "CR"))
         {
-            throw new ToolException(Text.Current.InvalidNewline);
+            throw new ToolException(Text.Current.InvalidLineEnding);
         }
 
         return value;
